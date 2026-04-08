@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Smart Parking</title>
+  <style>
+    .slot {
+      width: 100px;
+      height: 100px;
+      display: inline-block;
+      margin: 10px;
+      text-align: center;
+      line-height: 100px;
+      color: white;
+      font-weight: bold;
+    }
+    .FREE { background: green; }
+    .OCCUPIED { background: red; }
+  </style>
+</head>
+<body>
+
+<h1>Parking Dashboard</h1>
+<div id="slots"></div>
+
+<script>
+async function fetchSlots(){
+  let res = await fetch('http://127.0.0.1:5000/slots');
+  let data = await res.json();
+
+  let html = '';
+  data.forEach(slot => {
+    html += `<div class="slot ${slot.status}">
+      ${slot.slot_number}
+    </div>`;
+  });
+
+  document.getElementById('slots').innerHTML = html;
+}
+
+setInterval(fetchSlots, 2000);
+fetchSlots();
+</script>
+
+</body>
+</html>
