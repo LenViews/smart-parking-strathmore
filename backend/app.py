@@ -41,6 +41,17 @@ def update_slot():
         (slot_id, status)
     )
 
+    if status == "OCCUPIED":
+        cursor.execute(
+            "UPDATE parking_slots SET status='OCCUPIED' WHERE id=%s",
+            (slot_id,)
+        )
+    else:
+        cursor.execute(
+            "UPDATE parking_slots SET status='FREE' WHERE id=%s",
+            (slot_id,)
+        )
+
     db.commit()
 
     return jsonify({"message": "Slot updated"})
@@ -119,6 +130,57 @@ def login():
 
     return jsonify({"message": "Invalid credentials"}), 401
 
+# RESERVATION
+@app.route('/reserve', methods=['POST'])
+def reserve():
+    data = request.json
+    slot_id = data['slot_id']
+    user = data.get('user', 'Guest')
+
+    cursor = db.cursor()
+
+    # Check if slot is free
+    cursor.execute("SELECT status FROM parking_slots WHERE id=%s", (slot_id,))
+    status = cursor.fetchone()[0]
+
+    if status != 'FREE':
+        return jsonify({"message": "Slot not available"}), 400
+
+    # Reserve slot
+    cursor.execute(
+        "UPDATE parking_slots SET status='RESERVED' WHERE id=%s",
+        (slot_id,)
+    )
+
+    cursor.execute(
+        "INSERT INTO reservations (slot_id, user_name) VALUES (%s, %s)",
+        (slot_id, user)
+    )
+
+    db.commit()
+
+    return jsonify({"message": "Slot reserved"})
+
+# RESERVATION RELEASE
+@app.route('/release', methods=['POST'])
+def release():
+    slot_id = request.json['slot_id']
+
+    cursor = db.cursor()
+
+    cursor.execute(
+        "UPDATE parking_slots SET status='FREE' WHERE id=%s",
+        (slot_id,)
+    )
+
+    cursor.execute(
+        "DELETE FROM reservations WHERE slot_id=%s",
+        (slot_id,)
+    )
+
+    db.commit()
+
+    return jsonify({"message": "Reservation released"})
 
 
 if __name__ == '__main__':
