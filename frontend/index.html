@@ -62,6 +62,40 @@
 
 <div class="grid" id="slots"></div>
 
+<h2>Gate Simulation</h2>
+
+<input id="plate" placeholder="Enter Plate Number">
+<br><br>
+
+<button onclick="entry()">Entry</button>
+<button onclick="exit()">Exit</button>
+
+<script>
+async function entry(){
+  let plate = document.getElementById('plate').value;
+
+  await fetch('http://127.0.0.1:5000/entry', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({plate})
+  });
+
+  alert("Entry logged");
+}
+
+async function exit(){
+  let plate = document.getElementById('plate').value;
+
+  await fetch('http://127.0.0.1:5000/exit', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({plate})
+  });
+
+  alert("Exit logged");
+}
+</script>
+
 <script>
 async function fetchSlots(){
   let res = await fetch('http://127.0.0.1:5000/slots');
