@@ -168,6 +168,12 @@ async function fetchSlots(){
         ${slot.slot_number}
         <div>${slot.status}</div>
         <div class="timestamp">${new Date(slot.last_updated).toLocaleTimeString()}</div>
+
+        ${slot.status === "FREE" ?
+                `<button onclick="reserve(${slot.id})">Reserve</button>` : ''
+        }
+        ${slot.status === "RESERVED" ? 
+              `<button onclick="release(${slot.id})">Release</button>` : ''}
       </div>
     `;
   });
@@ -176,6 +182,27 @@ async function fetchSlots(){
 
   document.getElementById('summary').innerHTML =
     `${occupied} / ${data.length} slots occupied | ${data.length - occupied} available`;
+}
+
+async function reserve(slotId){
+  await fetch('http://127.0.0.1:5000/reserve', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      slot_id: slotId,
+      user: "User1"
+    })
+  });
+}
+
+async function release(slotId){
+  await fetch('http://127.0.0.1:5000/release', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      slot_id: slotId
+    })
+  });
 }
 
 setInterval(fetchSlots, 1000);
