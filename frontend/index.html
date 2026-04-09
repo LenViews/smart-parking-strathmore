@@ -1,26 +1,66 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Smart Parking</title>
+  <title>Smart Parking Dashboard</title>
+
   <style>
-    .slot {
-      width: 100px;
-      height: 100px;
-      display: inline-block;
-      margin: 10px;
+    body {
+      font-family: Arial;
       text-align: center;
-      line-height: 100px;
-      color: white;
-      font-weight: bold;
+      background: #f4f6f8;
     }
-    .FREE { background: green; }
-    .OCCUPIED { background: red; }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    .summary {
+      margin: 20px;
+      font-size: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 150px);
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .slot {
+      height: 120px;
+      border-radius: 10px;
+      color: white;
+      font-size: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+
+    .FREE {
+      background: #2ecc71;
+    }
+
+    .OCCUPIED {
+      background: #e74c3c;
+    }
+
+    .timestamp {
+      font-size: 12px;
+      margin-top: 5px;
+    }
   </style>
 </head>
+
 <body>
 
-<h1>Parking Dashboard</h1>
-<div id="slots"></div>
+<h1>🚗 Smart Parking System</h1>
+
+<div class="summary" id="summary"></div>
+
+<div class="grid" id="slots"></div>
 
 <script>
 async function fetchSlots(){
@@ -28,16 +68,27 @@ async function fetchSlots(){
   let data = await res.json();
 
   let html = '';
+  let occupied = 0;
+
   data.forEach(slot => {
-    html += `<div class="slot ${slot.status}">
-      ${slot.slot_number}
-    </div>`;
+    if(slot.status === "OCCUPIED") occupied++;
+
+    html += `
+      <div class="slot ${slot.status}">
+        ${slot.slot_number}
+        <div>${slot.status}</div>
+        <div class="timestamp">${new Date(slot.last_updated).toLocaleTimeString()}</div>
+      </div>
+    `;
   });
 
   document.getElementById('slots').innerHTML = html;
+
+  document.getElementById('summary').innerHTML =
+    `${occupied} / ${data.length} slots occupied | ${data.length - occupied} available`;
 }
 
-setInterval(fetchSlots, 2000);
+setInterval(fetchSlots, 1000);
 fetchSlots();
 </script>
 
