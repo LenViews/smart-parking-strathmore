@@ -1,5 +1,7 @@
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
 import MySQLdb
 
 app = Flask(__name__)
@@ -70,6 +72,54 @@ def exit():
     db.commit()
 
     return jsonify({"message": "Exit logged"})
+
+# REGISTER
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.json
+
+    name = data['name']
+    email = data['email']
+    password = generate_password_hash(data['password'])
+    role = data.get('role', 'student')
+
+    cursor = db.cursor()
+
+    try:
+        cursor.execute(
+            "INSERT INTO users (name, email, password, role) VALUES (%s, %s, %s, %s)",
+            (name, email, password, role)
+        )
+        db.commit()
+        return jsonify({"message": "User registered"})
+    except:
+        return jsonify({"message": "Email already exists"}), 400
+
+# LOGIN
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+
+    email = data['email']
+    password = data['password']
+
+    cursor = db.cursor(MySQLdb.cursors.DictCursor)
+    cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
+    user = cursor.fetchone()
+
+    if user and check_password_hash(user['password'], password):
+        return jsonify({
+            "message": "Login successful",
+            "user": {
+                "id": user['id'],
+                "name": user['name'],
+                "role": user['role']
+            }
+        })
+
+    return jsonify({"message": "Invalid credentials"}), 401
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
