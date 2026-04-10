@@ -33,8 +33,12 @@
 
     button {
       margin-top: 5px;
-      padding: 5px;
+      padding: 8px;
       cursor: pointer;
+    }
+
+    .top-bar {
+      margin: 20px;
     }
   </style>
 </head>
@@ -43,12 +47,13 @@
 
 <h1>🚗 Smart Parking System</h1>
 
-<h2>Login</h2>
-<input id="email" placeholder="Email"><br><br>
-<input id="password" type="password" placeholder="Password"><br><br>
-<button onclick="login()">Login</button>
+<p>Welcome! Please login or register to access full features.</p>
 
-<p id="userInfo"></p>
+<div class="top-bar">
+  <a href="auth.html">
+    <button>Login / Register</button>
+  </a>
+</div>
 
 <div id="summary"></div>
 <div class="grid" id="slots"></div>
@@ -61,31 +66,6 @@
 <script>
 let currentUser = null;
 const API = 'http://127.0.0.1:5000';
-
-// LOGIN
-async function login(){
-  try {
-    let res = await fetch(API + '/login', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        email: email.value,
-        password: password.value
-      })
-    });
-
-    let data = await res.json();
-
-    if(res.ok){
-      currentUser = data.user;
-      userInfo.innerText = `Logged in as ${currentUser.name} (${currentUser.role})`;
-    } else {
-      alert(data.message);
-    }
-  } catch {
-    alert("Server error");
-  }
-}
 
 // RESERVE
 async function reserve(slotId){
