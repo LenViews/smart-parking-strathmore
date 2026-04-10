@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Smart Parking - Auth</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      background: #f4f6f8;
+    }
+
+    .box {
+      background: white;
+      padding: 20px;
+      margin: 50px auto;
+      width: 300px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    input {
+      width: 90%;
+      padding: 8px;
+      margin: 5px;
+    }
+
+    button {
+      padding: 10px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>🚗 Smart Parking System</h1>
+
+<div class="box">
+  <h2>Login</h2>
+  <input id="loginEmail" placeholder="Email"><br>
+  <input id="loginPassword" type="password" placeholder="Password"><br>
+  <button onclick="login()">Login</button>
+</div>
+
+<div class="box">
+  <h2>Register</h2>
+  <input id="name" placeholder="Name"><br>
+  <input id="email" placeholder="Email"><br>
+  <input id="password" type="password" placeholder="Password"><br>
+
+  <select id="role">
+    <option value="student">Student</option>
+    <option value="staff">Staff</option>
+    <option value="security">Security</option>
+  </select><br>
+
+  <button onclick="register()">Register</button>
+</div>
+
+<script>
+const API = "http://127.0.0.1:5000";
+
+async function login(){
+  let res = await fetch(API + "/login", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      email: loginEmail.value,
+      password: loginPassword.value
+    })
+  });
+
+  let data = await res.json();
+
+  if(res.ok){
+    localStorage.setItem("user", JSON.stringify(data.user));
+
+    redirectUser(data.user.role);
+  } else {
+    alert(data.message);
+  }
+}
+
+async function register(){
+  let res = await fetch(API + "/register", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      name: name.value,
+      email: email.value,
+      password: password.value,
+      role: role.value
+    })
+  });
+
+  let data = await res.json();
+  alert(data.message);
+}
+
+function redirectUser(role){
+  if(role === "student") window.location = "student.html";
+  else if(role === "staff") window.location = "staff.html";
+  else if(role === "security") window.location = "security.html";
+  else if(role === "admin") window.location = "admin.html";
+}
+</script>
+
+</body>
+</html>
