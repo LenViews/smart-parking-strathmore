@@ -10,50 +10,31 @@
       background: #f4f6f8;
     }
 
-    h1 {
-      margin-top: 20px;
-    }
-
-    .summary {
-      margin: 20px;
-      font-size: 20px;
-    }
-
     .grid {
       display: grid;
-      grid-template-columns: repeat(2, 150px);
-      gap: 20px;
-      justify-content: center;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 15px;
+      padding: 20px;
     }
 
     .slot {
       height: 120px;
       border-radius: 10px;
       color: white;
-      font-size: 18px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      font-weight: bold;
-      transition: 0.3s;
     }
 
-    .FREE {
-      background: #2ecc71;
-    }
+    .FREE { background: #2ecc71; }
+    .RESERVED { background: #f39c12; }
+    .OCCUPIED { background: #e74c3c; }
 
-    .RESERVED {
-      background: #f39c12;
-    }
-
-    .OCCUPIED {
-      background: #e74c3c;
-    }
-
-    .timestamp {
-      font-size: 12px;
+    button {
       margin-top: 5px;
+      padding: 5px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -63,102 +44,116 @@
 <h1>🚗 Smart Parking System</h1>
 
 <h2>Login</h2>
-
 <input id="email" placeholder="Email"><br><br>
 <input id="password" type="password" placeholder="Password"><br><br>
-
 <button onclick="login()">Login</button>
 
 <p id="userInfo"></p>
 
-<div class="summary" id="summary"></div>
-
+<div id="summary"></div>
 <div class="grid" id="slots"></div>
 
 <h2>Gate Simulation</h2>
-
-<input id="plate" placeholder="Enter Plate Number">
-<br><br>
-
+<input id="plate" placeholder="Plate Number"><br><br>
 <button onclick="entry()">Entry</button>
 <button onclick="exit()">Exit</button>
 
-
-
 <script>
-
 let currentUser = null;
+const API = 'http://127.0.0.1:5000';
 
+// LOGIN
 async function login(){
-  let email = document.getElementById('email').value;
-  let password = document.getElementById('password').value;
+  try {
+    let res = await fetch(API + '/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        email: email.value,
+        password: password.value
+      })
+    });
 
-  let res = await fetch('http://127.0.0.1:5000/login', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({email, password})
-  });
+    let data = await res.json();
 
-  let data = await res.json();
-
-  if(res.ok){
-    currentUser = data.user;
-    document.getElementById('userInfo').innerText =
-      `Logged in as ${currentUser.name} (${currentUser.role})`;
-  } else {
-    alert(data.message);
+    if(res.ok){
+      currentUser = data.user;
+      userInfo.innerText = `Logged in as ${currentUser.name} (${currentUser.role})`;
+    } else {
+      alert(data.message);
+    }
+  } catch {
+    alert("Server error");
   }
 }
 
+// RESERVE
 async function reserve(slotId){
-  if(!currentUser){
-    alert("Login first");
-    return;
-  }
+  if(!currentUser) return alert("Login first");
 
-  await fetch('http://127.0.0.1:5000/reserve', {
+  let res = await fetch(API + '/reserve', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
       slot_id: slotId,
-      user: currentUser.name,
+      user_id: currentUser.id,
       role: currentUser.role
     })
   });
+
+  let data = await res.json();
+  alert(data.message);
 }
 
+// RELEASE
+async function release(slotId){
+  if(!currentUser) return alert("Login first");
+
+  let res = await fetch(API + '/release', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      slot_id: slotId,
+      user_id: currentUser.id,
+      role: currentUser.role
+    })
+  });
+
+  let data = await res.json();
+  alert(data.message);
+}
+
+// ENTRY
 async function entry(){
-  let plate = document.getElementById('plate').value;
-
-  await fetch('http://127.0.0.1:5000/entry', {
+  let res = await fetch(API + '/entry', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({plate})
+    body: JSON.stringify({plate: plate.value})
   });
 
-  alert("Entry logged");
+  let data = await res.json();
+  alert(data.message);
 }
 
+// EXIT
 async function exit(){
-  let plate = document.getElementById('plate').value;
-
-  await fetch('http://127.0.0.1:5000/exit', {
+  let res = await fetch(API + '/exit', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({plate})
+    body: JSON.stringify({plate: plate.value})
   });
 
-  alert("Exit logged");
+  let data = await res.json();
+  alert(data.message);
 }
-</script>
 
-<script>
+// FETCH SLOTS
 async function fetchSlots(){
-  let res = await fetch('http://127.0.0.1:5000/slots');
+  let res = await fetch(API + '/slots');
   let data = await res.json();
 
-  let html = '';
   let occupied = 0;
+  let html = '';
 
   data.forEach(slot => {
     if(slot.status === "OCCUPIED") occupied++;
@@ -167,31 +162,18 @@ async function fetchSlots(){
       <div class="slot ${slot.status}">
         ${slot.slot_number}
         <div>${slot.status}</div>
-        <div class="timestamp">${new Date(slot.last_updated).toLocaleTimeString()}</div>
 
-        ${slot.status === "FREE" ?
-                `<button onclick="reserve(${slot.id})">Reserve</button>` : ''
-        }
-        ${slot.status === "RESERVED" ? 
-              `<button onclick="release(${slot.id})">Release</button>` : ''}
+        ${slot.status === "FREE" && currentUser ?
+          `<button onclick="reserve(${slot.id})">Reserve</button>` : ''}
+
+        ${slot.status === "RESERVED" && currentUser && currentUser.role === "admin" ?
+          `<button onclick="release(${slot.id})">Release</button>` : ''}
       </div>
     `;
   });
 
-  document.getElementById('slots').innerHTML = html;
-
-  document.getElementById('summary').innerHTML =
-    `${occupied} / ${data.length} slots occupied | ${data.length - occupied} available`;
-}
-
-async function release(slotId){
-  await fetch('http://127.0.0.1:5000/release', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      slot_id: slotId
-    })
-  });
+  slots.innerHTML = html;
+  summary.innerHTML = `${occupied}/${data.length} occupied`;
 }
 
 setInterval(fetchSlots, 1000);
