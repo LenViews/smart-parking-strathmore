@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Security Dashboard</title>
+</head>
+<body>
+
+<h1>🛡 Security Monitoring</h1>
+<button onclick="logout()">Logout</button>
+
+<div id="slots"></div>
+
+<script>
+const API = "http://127.0.0.1:5000";
+let user = JSON.parse(localStorage.getItem("user"));
+
+if(!user || user.role !== "security"){
+  window.location = "index.html";
+}
+
+function logout(){
+  localStorage.removeItem("user");
+  window.location = "index.html";
+}
+
+async function fetchSlots(){
+  let res = await fetch(API + "/slots");
+  let data = await res.json();
+
+  let html = "";
+
+  data.forEach(slot => {
+    html += `<div>${slot.slot_number} - ${slot.status}</div>`;
+  });
+
+  slots.innerHTML = html;
+}
+
+setInterval(fetchSlots, 1000);
+</script>
+
+</body>
+</html>
