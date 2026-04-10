@@ -1,33 +1,52 @@
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-
 import MySQLdb
 
 app = Flask(__name__)
-
 CORS(app)
 
 db = MySQLdb.connect(
     host="localhost",
     user="parking_user",
     passwd="strongpassword",
-    db="smart_parking"
+    db="smart_parking",
+    autocommit=False
 )
 
-# GET ALL SLOTS
-@app.route('/slots', methods=['GET'])
+# ------------------ HELPERS ------------------
+
+def authorize(role, allowed):
+    return role in allowed
+
+def cleanup_expired(cursor):
+    cursor.execute("""
+        DELETE FROM reservations 
+        WHERE created_at < NOW() - INTERVAL 10 MINUTE
+    """)
+
+    cursor.execute("""
+        UPDATE parking_slots 
+        SET status='FREE'
+        WHERE id NOT IN (SELECT slot_id FROM reservations)
+    """)
+
+# ------------------ ROUTES ------------------
+
+@app.route('/slots')
 def get_slots():
     cursor = db.cursor(MySQLdb.cursors.DictCursor)
     cursor.execute("SELECT * FROM parking_slots")
     return jsonify(cursor.fetchall())
 
-# UPDATE SLOT STATUS
 @app.route('/update_slot', methods=['POST'])
 def update_slot():
     data = request.json
-    slot_id = data['slot_id']
-    status = data['status']
+    slot_id = data.get('slot_id')
+    status = data.get('status')
+
+    if not slot_id or not status:
+        return jsonify({"message": "Invalid data"}), 400
 
     cursor = db.cursor()
 
@@ -41,25 +60,12 @@ def update_slot():
         (slot_id, status)
     )
 
-    if status == "OCCUPIED":
-        cursor.execute(
-            "UPDATE parking_slots SET status='OCCUPIED' WHERE id=%s",
-            (slot_id,)
-        )
-    else:
-        cursor.execute(
-            "UPDATE parking_slots SET status='FREE' WHERE id=%s",
-            (slot_id,)
-        )
-
     db.commit()
-
     return jsonify({"message": "Slot updated"})
 
-# ENTRY LOG
 @app.route('/entry', methods=['POST'])
 def entry():
-    plate = request.json['plate']
+    plate = request.json.get('plate')
 
     cursor = db.cursor()
     cursor.execute(
@@ -70,10 +76,9 @@ def entry():
 
     return jsonify({"message": "Entry logged"})
 
-# EXIT LOG
 @app.route('/exit', methods=['POST'])
 def exit():
-    plate = request.json['plate']
+    plate = request.json.get('plate')
 
     cursor = db.cursor()
     cursor.execute(
@@ -84,43 +89,37 @@ def exit():
 
     return jsonify({"message": "Exit logged"})
 
-# REGISTER
 @app.route('/register', methods=['POST'])
 def register():
     data = request.json
-
-    name = data['name']
-    email = data['email']
-    password = generate_password_hash(data['password'])
-    role = data.get('role', 'student')
 
     cursor = db.cursor()
 
     try:
         cursor.execute(
-            "INSERT INTO users (name, email, password, role) VALUES (%s, %s, %s, %s)",
-            (name, email, password, role)
+            "INSERT INTO users (name, email, password, role) VALUES (%s,%s,%s,%s)",
+            (
+                data['name'],
+                data['email'],
+                generate_password_hash(data['password']),
+                data.get('role', 'student')
+            )
         )
         db.commit()
         return jsonify({"message": "User registered"})
     except:
-        return jsonify({"message": "Email already exists"}), 400
+        return jsonify({"message": "Email exists"}), 400
 
-# LOGIN
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
 
-    email = data['email']
-    password = data['password']
-
     cursor = db.cursor(MySQLdb.cursors.DictCursor)
-    cursor.execute("SELECT * FROM users WHERE email=%s", (email,))
+    cursor.execute("SELECT * FROM users WHERE email=%s", (data['email'],))
     user = cursor.fetchone()
 
-    if user and check_password_hash(user['password'], password):
+    if user and check_password_hash(user['password'], data['password']):
         return jsonify({
-            "message": "Login successful",
             "user": {
                 "id": user['id'],
                 "name": user['name'],
@@ -130,58 +129,84 @@ def login():
 
     return jsonify({"message": "Invalid credentials"}), 401
 
-# RESERVATION
+# ------------------ RESERVE ------------------
+
 @app.route('/reserve', methods=['POST'])
 def reserve():
     data = request.json
-    slot_id = data['slot_id']
-    user = data.get('user', 'Guest')
+    role = data.get('role')
+
+    if not authorize(role, ['student', 'staff', 'admin']):
+        return jsonify({"message": "Unauthorized"}), 403
+
+    slot_id = data.get('slot_id')
+    user_id = data.get('user_id')
 
     cursor = db.cursor()
 
-    # Check if slot is free
-    cursor.execute("SELECT status FROM parking_slots WHERE id=%s", (slot_id,))
-    status = cursor.fetchone()[0]
+    try:
+        db.begin()
 
-    if status != 'FREE':
-        return jsonify({"message": "Slot not available"}), 400
+        cleanup_expired(cursor)
 
-    # Reserve slot
-    cursor.execute(
-        "UPDATE parking_slots SET status='RESERVED' WHERE id=%s",
-        (slot_id,)
-    )
+        cursor.execute(
+            "SELECT status FROM parking_slots WHERE id=%s FOR UPDATE",
+            (slot_id,)
+        )
+        row = cursor.fetchone()
 
-    cursor.execute(
-        "INSERT INTO reservations (slot_id, user_name) VALUES (%s, %s)",
-        (slot_id, user)
-    )
+        if not row:
+            return jsonify({"message": "Slot not found"}), 404
 
-    db.commit()
+        if row[0] != 'FREE':
+            return jsonify({"message": "Slot not available"}), 400
 
-    return jsonify({"message": "Slot reserved"})
+        cursor.execute(
+            "UPDATE parking_slots SET status='RESERVED' WHERE id=%s",
+            (slot_id,)
+        )
 
-# RESERVATION RELEASE
+        cursor.execute(
+            "INSERT INTO reservations (slot_id, user_id) VALUES (%s,%s)",
+            (slot_id, user_id)
+        )
+
+        db.commit()
+        return jsonify({"message": "Reserved successfully"})
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({"message": "Error", "error": str(e)}), 500
+
+# ------------------ RELEASE ------------------
+
 @app.route('/release', methods=['POST'])
 def release():
-    slot_id = request.json['slot_id']
+    data = request.json
+    role = data.get('role')
+
+    if not authorize(role, ['admin']):
+        return jsonify({"message": "Admin only"}), 403
+
+    slot_id = data.get('slot_id')
 
     cursor = db.cursor()
-
-    cursor.execute(
-        "UPDATE parking_slots SET status='FREE' WHERE id=%s",
-        (slot_id,)
-    )
 
     cursor.execute(
         "DELETE FROM reservations WHERE slot_id=%s",
         (slot_id,)
     )
 
+    cursor.execute(
+        "UPDATE parking_slots SET status='FREE' WHERE id=%s",
+        (slot_id,)
+    )
+
     db.commit()
 
-    return jsonify({"message": "Reservation released"})
-
+    return jsonify({"message": "Released"})
+    
+# ------------------
 
 if __name__ == '__main__':
     app.run(debug=True)
