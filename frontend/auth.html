@@ -46,7 +46,7 @@
 
 <div class="box">
   <h2>Register</h2>
-  <input id="name" placeholder="Name"><br>
+  <input id="fullname" placeholder="Full Name"><br>
   <input id="email" placeholder="Email"><br>
   <input id="password" type="password" placeholder="Password"><br>
 
@@ -88,7 +88,7 @@ async function register(){
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
-      name: name.value,
+      name: fullname.value,
       email: email.value,
       password: password.value,
       role: role.value
@@ -96,7 +96,7 @@ async function register(){
   });
 
   let data = await res.json();
-  alert(data.message);
+  alert(data.message + (data.error ? "\n" + data.error : ""));
 }
 
 function redirectUser(role){

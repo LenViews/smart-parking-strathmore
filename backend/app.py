@@ -102,13 +102,20 @@ def register():
                 data['name'],
                 data['email'],
                 generate_password_hash(data['password']),
-                data.get('role', 'student')
+                data['role']
             )
         )
         db.commit()
         return jsonify({"message": "User registered"})
-    except:
+    except MySQLdb.IntegrityError as e:
+        db.rollback()
         return jsonify({"message": "Email exists"}), 400
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({
+            "message": "Registration failed",
+            "error": str(e)}), 500
 
 @app.route('/login', methods=['POST'])
 def login():
