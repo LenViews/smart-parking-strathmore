@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -10,26 +11,13 @@
       background: #f4f6f8;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 15px;
-      padding: 20px;
+    h1 {
+      margin-top: 20px;
     }
 
-    .slot {
-      height: 120px;
-      border-radius: 10px;
-      color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
+    .top-bar {
+      margin: 20px;
     }
-
-    .FREE { background: #2ecc71; }
-    .RESERVED { background: #f39c12; }
-    .OCCUPIED { background: #e74c3c; }
 
     button {
       margin-top: 5px;
@@ -37,8 +25,59 @@
       cursor: pointer;
     }
 
-    .top-bar {
-      margin: 20px;
+    /* ===== PARKING LAYOUT ===== */
+    .parking-lot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 35px;
+      padding: 30px;
+    }
+
+    .row {
+      display: flex;
+      gap: 35px;
+      justify-content: center;
+    }
+
+    /* 45° angled slot */
+    .slot {
+      width: 90px;
+      height: 150px;
+      border-radius: 10px;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transform: rotate(45deg);
+      position: relative;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+
+    /* Fix text rotation */
+    .slot-content {
+      transform: rotate(-45deg);
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .FREE { background: #2ecc71; }
+    .RESERVED { background: #f39c12; }
+    .OCCUPIED { background: #e74c3c; }
+
+    /* Driving lane */
+    .lane {
+      width: 45%;
+      height: 80px;
+      background: #bdc3c7;
+      border-radius: 10px;
+      margin: 10px auto;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .summary {
+      font-weight: bold;
+      margin: 10px;
     }
   </style>
 </head>
@@ -55,8 +94,10 @@
   </a>
 </div>
 
-<div id="summary"></div>
-<div class="grid" id="slots"></div>
+<div id="summary" class="summary"></div>
+
+<!-- ANGLED PARKING LOT -->
+<div class="parking-lot" id="slots"></div>
 
 <h2>Gate Simulation</h2>
 <input id="plate" placeholder="Plate Number"><br><br>
@@ -67,7 +108,7 @@
 let currentUser = null;
 const API = 'http://127.0.0.1:5000';
 
-// RESERVE
+/* ===== RESERVE ===== */
 async function reserve(slotId){
   if(!currentUser) return alert("Login first");
 
@@ -85,7 +126,7 @@ async function reserve(slotId){
   alert(data.message);
 }
 
-// RELEASE
+/* ===== RELEASE ===== */
 async function release(slotId){
   if(!currentUser) return alert("Login first");
 
@@ -103,7 +144,7 @@ async function release(slotId){
   alert(data.message);
 }
 
-// ENTRY
+/* ===== ENTRY ===== */
 async function entry(){
   let res = await fetch(API + '/entry', {
     method: 'POST',
@@ -115,7 +156,7 @@ async function entry(){
   alert(data.message);
 }
 
-// EXIT
+/* ===== EXIT ===== */
 async function exit(){
   let res = await fetch(API + '/exit', {
     method: 'POST',
@@ -127,35 +168,53 @@ async function exit(){
   alert(data.message);
 }
 
-// FETCH SLOTS
+/* ===== FETCH + RENDER ANGLED LOT ===== */
 async function fetchSlots(){
   let res = await fetch(API + '/slots');
   let data = await res.json();
 
   let occupied = 0;
-  let html = '';
 
-  data.forEach(slot => {
-    if(slot.status === "OCCUPIED") occupied++;
+  // split into two angled rows
+  let mid = Math.ceil(data.length / 2);
+  let row1 = data.slice(0, mid);
+  let row2 = data.slice(mid);
 
-    html += `
-      <div class="slot ${slot.status}">
-        ${slot.slot_number}
-        <div>${slot.status}</div>
+  function renderRow(slotsArr){
+    return `
+      <div class="row">
+        ${slotsArr.map(slot => {
+          if(slot.status === "OCCUPIED") occupied++;
 
-        ${slot.status === "FREE" && currentUser ?
-          `<button onclick="reserve(${slot.id})">Reserve</button>` : ''}
+          return `
+            <div class="slot ${slot.status}">
+              <div class="slot-content">
+                <b>${slot.slot_number}</b><br>
+                ${slot.status}<br>
 
-        ${slot.status === "RESERVED" && currentUser && currentUser.role === "admin" ?
-          `<button onclick="release(${slot.id})">Release</button>` : ''}
+                ${slot.status === "FREE" && currentUser ?
+                  `<button onclick="reserve(${slot.id})">Reserve</button>` : ''}
+
+                ${slot.status === "RESERVED" && currentUser && currentUser.role === "admin" ?
+                  `<button onclick="release(${slot.id})">Release</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
-  });
+  }
 
-  slots.innerHTML = html;
+  slots.innerHTML = `
+    ${renderRow(row1)}
+    <div class="lane"></div>
+    ${renderRow(row2)}
+  `;
+
   summary.innerHTML = `${occupied}/${data.length} occupied`;
 }
 
+/* ===== AUTO REFRESH ===== */
 setInterval(fetchSlots, 1000);
 fetchSlots();
 </script>
