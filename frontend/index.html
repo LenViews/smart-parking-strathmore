@@ -184,17 +184,6 @@ async function fetchSlots(){
     `${occupied} / ${data.length} slots occupied | ${data.length - occupied} available`;
 }
 
-async function reserve(slotId){
-  await fetch('http://127.0.0.1:5000/reserve', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      slot_id: slotId,
-      user: "User1"
-    })
-  });
-}
-
 async function release(slotId){
   await fetch('http://127.0.0.1:5000/release', {
     method: 'POST',
