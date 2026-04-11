@@ -1,74 +1,99 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin Dashboard</title>
+<title>Admin Dashboard</title>
 </head>
 <body>
 
-<h1>🛠 Admin Dashboard</h1>
+<h1>🛠 Admin Control Center</h1>
 <button onclick="logout()">Logout</button>
 
+<h2>Slots</h2>
 <div id="slots"></div>
 
+<h2>System Logs</h2>
+<div id="logs"></div>
+
+<h2>Users</h2>
+<div id="users"></div>
+
 <script>
-const API = "http://127.0.0.1:5000";
+const API="http://127.0.0.1:5000";
 let user = JSON.parse(localStorage.getItem("user"));
 
-if(!user || user.role !== "admin"){
-  window.location = "index.html";
-}
+if(!user || user.role !== "admin") window.location="index.html";
 
 function logout(){
-  localStorage.removeItem("user");
-  window.location = "index.html";
+  localStorage.clear();
+  window.location="index.html";
 }
 
 async function fetchSlots(){
-  let res = await fetch(API + "/slots");
+  let res = await fetch(API+"/slots");
   let data = await res.json();
 
-  let html = "";
-
-  data.forEach(slot => {
+  let html="";
+  data.forEach(slot=>{
     html += `
       <div>
         ${slot.slot_number} - ${slot.status}
-        ${slot.status === "FREE" ?
-          `<button onclick="reserve(${slot.id})">Reserve</button>` : ''}
-        ${slot.status === "RESERVED" ?
-          `<button onclick="release(${slot.id})">Release</button>` : ''}
+        <button onclick="reserve(${slot.id})">Reserve</button>
+        <button onclick="release(${slot.id})">Release</button>
       </div>
     `;
   });
 
-  slots.innerHTML = html;
+  slots.innerHTML=html;
+}
+
+async function fetchLogs(){
+  let res = await fetch(API+"/logs");
+  let data = await res.json();
+
+  logs.innerHTML = data.map(l =>
+    `<div>${l.vehicle_plate} | ${l.entry_time}</div>`
+  ).join("");
+}
+
+async function fetchUsers(){
+  let res = await fetch(API+"/users");
+  let data = await res.json();
+
+  users.innerHTML = data.map(u =>
+    `<div>${u.name} (${u.role})</div>`
+  ).join("");
 }
 
 async function reserve(id){
-  await fetch(API + "/reserve", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
+  await fetch(API+"/reserve",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
-      slot_id: id,
-      user_id: user.id,
-      role: user.role
+      slot_id:id,
+      user_id:user.id,
+      role:user.role
     })
   });
 }
 
 async function release(id){
-  await fetch(API + "/release", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
+  await fetch(API+"/release",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
-      slot_id: id,
-      user_id: user.id,
-      role: user.role
+      slot_id:id,
+      user_id:user.id,
+      role:user.role
     })
   });
 }
 
-setInterval(fetchSlots, 1000);
+setInterval(()=>{
+  fetchSlots();
+  fetchLogs();
+  fetchUsers();
+},1000);
 </script>
 
 </body>
