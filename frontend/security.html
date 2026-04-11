@@ -3,64 +3,156 @@
 <html>
 <head>
 <title>Security Dashboard</title>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<style>
+body {
+  font-family: Arial;
+  background: #f4f6f8;
+  text-align: center;
+}
+
+h1 {
+  margin-top: 20px;
+}
+
+.section {
+  margin: 20px auto;
+  width: 80%;
+}
+
+.card {
+  background: white;
+  padding: 10px;
+  margin: 8px auto;
+  width: 400px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+button {
+  padding: 8px;
+  margin-top: 10px;
+  cursor: pointer;
+}
+</style>
 </head>
+
 <body>
 
 <h1>🛡 Security Control Panel</h1>
 <button onclick="logout()">Logout</button>
 
-<h2>Live Parking Status</h2>
-<div id="slots"></div>
+<div class="section">
+  <h2>Live Parking Status</h2>
+  <div id="slots">Loading...</div>
+</div>
 
-<h2>Entry Logs</h2>
-<div id="logs"></div>
+<div class="section">
+  <h2>Entry Logs</h2>
+  <div id="logs">Loading...</div>
+</div>
 
-<button onclick="openGate()">Open Gate</button>
+<button onclick="openGate()">🚪 Open Gate</button>
 
 <script>
-const API="http://127.0.0.1:5000";
-let user = JSON.parse(localStorage.getItem("user"));
 
-if(!user || user.role !== "security") window.location="index.html";
+const API = "http://127.0.0.1:5000";
+const socket = io(API);
 
-function logout(){
-  localStorage.clear();
-  window.location="index.html";
+let user = null;
+
+try {
+  user = JSON.parse(localStorage.getItem("user"));
+} catch (e) {
+  user = null;
 }
 
-async function fetchSlots(){
-  let res = await fetch(API+"/slots");
-  let data = await res.json();
-
-  let html="";
-  data.forEach(slot=>{
-    html += `<div>${slot.slot_number} - ${slot.status}</div>`;
-  });
-
-  slots.innerHTML=html;
+if (!user || user.role !== "security") {
+  window.location = "index.html";
 }
 
-async function fetchLogs(){
-  let res = await fetch(API+"/logs");
-  let data = await res.json();
+/* ---------------- SOCKET EVENTS ---------------- */
+socket.on("connect", () => {
+  console.log("Security dashboard connected");
+  loadAll();
+});
 
-  let html="";
-  data.forEach(log=>{
-    html += `<div>${log.vehicle_plate} | ${log.entry_time} → ${log.exit_time || "IN"}</div>`;
-  });
+socket.on("slots_updated", () => fetchSlots());
+socket.on("logs_updated", () => fetchLogs());
 
-  logs.innerHTML=html;
-}
+/* ---------------- INITIAL LOAD ---------------- */
+loadAll();
 
-async function openGate(){
-  await fetch(API+"/open_gate", {method:"POST"});
-  alert("Gate triggered");
-}
-
-setInterval(()=>{
+function loadAll(){
   fetchSlots();
   fetchLogs();
-},1000);
+}
+
+/* ---------------- LOGOUT ---------------- */
+function logout(){
+  localStorage.clear();
+  window.location = "index.html";
+}
+
+/* ---------------- SLOTS ---------------- */
+async function fetchSlots(){
+  try {
+    let res = await fetch(API + "/slots");
+    let data = await res.json();
+
+    if (!data.length) {
+      document.getElementById("slots").innerHTML = "No slots found";
+      return;
+    }
+
+    document.getElementById("slots").innerHTML = data.map(slot => `
+      <div class="card">
+        <b>Slot ${slot.slot_number}</b><br>
+        Status: ${slot.status}
+      </div>
+    `).join("");
+
+  } catch (err) {
+    document.getElementById("slots").innerHTML = "Error loading slots";
+  }
+}
+
+/* ---------------- LOGS ---------------- */
+async function fetchLogs(){
+  try {
+    let res = await fetch(API + "/logs");
+    let data = await res.json();
+
+    if (!data.length) {
+      document.getElementById("logs").innerHTML = "No logs yet";
+      return;
+    }
+
+    document.getElementById("logs").innerHTML = data.map(log => `
+      <div class="card">
+        <b>${log.vehicle_plate || "N/A"}</b><br>
+        Entry: ${log.entry_time || ""}<br>
+        Exit: ${log.exit_time || "IN"}
+      </div>
+    `).join("");
+
+  } catch (err) {
+    document.getElementById("logs").innerHTML = "Error loading logs";
+  }
+}
+
+/* ---------------- GATE ---------------- */
+async function openGate(){
+  let res = await fetch(API + "/open_gate", {
+    method: "POST"
+  });
+
+  let data = await res.json();
+  alert(data.message || "Gate triggered");
+}
+
 </script>
 
 </body>
