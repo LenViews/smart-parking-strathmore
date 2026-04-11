@@ -306,6 +306,58 @@ def release():
     finally:
         cursor.close()
 
+# ------------- CANCEL RESERVATION ------------------
+@app.route('/cancel_reservation', methods=['POST'])
+def cancel_reservation():
+    db = get_db()
+    cursor = db.cursor()
+
+    data = request.json
+    user_id = data.get('user_id')
+    slot_id = data.get('slot_id')
+
+    if not user_id or not slot_id:
+        return jsonify({"message": "Invalid data"}), 400
+
+    try:
+        db.begin()
+
+        # Ensure reservation belongs to this user
+        cursor.execute(
+            "SELECT id FROM reservations WHERE slot_id=%s AND user_id=%s",
+            (slot_id, user_id)
+        )
+        reservation = cursor.fetchone()
+
+        if not reservation:
+            return jsonify({"message": "Reservation not found"}), 404
+
+        # Delete reservation
+        cursor.execute(
+            "DELETE FROM reservations WHERE slot_id=%s AND user_id=%s",
+            (slot_id, user_id)
+        )
+
+        # Free the slot
+        cursor.execute(
+            "UPDATE parking_slots SET status='FREE' WHERE id=%s",
+            (slot_id,)
+        )
+
+        db.commit()
+
+        socketio.emit('slots_updated')
+        socketio.emit('logs_updated')
+
+        return jsonify({"message": "Reservation cancelled successfully"})
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({"message": "Error", "error": str(e)}), 500
+
+    finally:
+        cursor.close()
+
 
 # ------------------ USER RESERVATIONS ------------------
 

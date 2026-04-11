@@ -3,7 +3,37 @@
 <html>
 <head>
 <title>Student Dashboard</title>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<style>
+body {
+  font-family: Arial;
+  background: #f4f6f8;
+  text-align: center;
+}
+
+.card {
+  background: white;
+  padding: 15px;
+  margin: 10px auto;
+  width: 350px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+button {
+  padding: 6px;
+  margin-top: 5px;
+  cursor: pointer;
+}
+
+.free { color: green; }
+.reserved { color: orange; }
+.occupied { color: red; }
+</style>
 </head>
+
 <body>
 
 <h1>🎓 Student Dashboard</h1>
@@ -17,15 +47,36 @@
 
 <script>
 const API = "http://127.0.0.1:5000";
-let user = JSON.parse(localStorage.getItem("user"));
+const socket = io(API);
 
-if(!user || user.role !== "student") window.location = "index.html";
+let user = null;
 
+try {
+  user = JSON.parse(localStorage.getItem("user"));
+} catch (e) {
+  user = null;
+}
+
+if (!user || user.role !== "student") {
+  window.location = "index.html";
+}
+
+/* ---------------- SOCKET ---------------- */
+socket.on("slots_updated", () => {
+  fetchSlots();
+});
+
+socket.on("logs_updated", () => {
+  fetchMyReservations();
+});
+
+/* ---------------- LOGOUT ---------------- */
 function logout(){
   localStorage.clear();
   window.location = "index.html";
 }
 
+/* ---------------- SLOTS ---------------- */
 async function fetchSlots(){
   let res = await fetch(API + "/slots");
   let data = await res.json();
@@ -34,17 +85,21 @@ async function fetchSlots(){
 
   data.forEach(slot => {
     html += `
-      <div>
-        ${slot.slot_number} - ${slot.status}
-        ${slot.status === "FREE" ?
-          `<button onclick="reserve(${slot.id})">Reserve</button>` : ''}
+      <div class="card">
+        <b>Slot ${slot.slot_number}</b><br>
+        Status: <span class="${slot.status.toLowerCase()}">${slot.status}</span><br>
+
+        ${slot.status === "FREE" ? `
+          <button onclick="reserve(${slot.id})">Reserve</button>
+        ` : ""}
       </div>
     `;
   });
 
-  slots.innerHTML = html;
+  document.getElementById("slots").innerHTML = html;
 }
 
+/* ---------------- RESERVE ---------------- */
 async function reserve(id){
   let res = await fetch(API + "/reserve", {
     method: "POST",
@@ -56,9 +111,11 @@ async function reserve(id){
     })
   });
 
-  alert((await res.json()).message);
+  let data = await res.json();
+  alert(data.message);
 }
 
+/* ---------------- MY RESERVATIONS ---------------- */
 async function fetchMyReservations(){
   let res = await fetch(API + "/my_reservations?user_id=" + user.id);
   let data = await res.json();
@@ -67,32 +124,38 @@ async function fetchMyReservations(){
 
   data.forEach(r => {
     html += `
-      <div>
-        Slot ${r.slot_id}
+      <div class="card">
+        Slot ${r.slot_id}<br>
         <button onclick="cancel(${r.slot_id})">Cancel</button>
       </div>
     `;
   });
 
-  myReservations.innerHTML = html;
+  document.getElementById("myReservations").innerHTML = html;
 }
 
-async function cancel(id){
-  await fetch(API + "/release", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
+/* ---------------- CANCEL ---------------- */
+
+async function cancel(slotId){
+  let res = await fetch(API + "/cancel_reservation", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
     body: JSON.stringify({
-      slot_id:id,
-      user_id:user.id,
-      role:user.role
+      slot_id: slotId,
+      user_id: user.id
     })
   });
-}
 
-setInterval(()=>{
+  let data = await res.json();
+  alert(data.message);
+
   fetchSlots();
   fetchMyReservations();
-},3000);
+}
+
+/* ---------------- INIT ---------------- */
+fetchSlots();
+fetchMyReservations();
 </script>
 
 </body>
