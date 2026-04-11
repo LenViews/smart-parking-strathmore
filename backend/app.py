@@ -85,7 +85,7 @@ def update_slot():
         )
 
         db.commit()
-        socketio.emit('slots_updated', broadcast=True)
+        socketio.emit('slots_updated')
         return jsonify({"message": "Slot updated"})
 
     except Exception as e:
@@ -111,7 +111,7 @@ def entry():
             (plate,)
         )
         db.commit()
-        socketio.emit('logs_updated', broadcast=True)
+        socketio.emit('logs_updated')
         return jsonify({"message": "Entry logged"})
 
     except Exception as e:
@@ -137,7 +137,7 @@ def exit():
             (plate,)
         )
         db.commit()
-        socketio.emit('logs_updated', broadcast=True)
+        socketio.emit('logs_updated')
         return jsonify({"message": "Exit logged"})
 
     except Exception as e:
@@ -169,7 +169,7 @@ def register():
         )
 
         db.commit()
-        socketio.emit('users_updated', broadcast=True)
+        socketio.emit('users_updated')
         return jsonify({"message": "User registered"})
 
     except MySQLdb.IntegrityError:
@@ -177,6 +177,7 @@ def register():
         return jsonify({"message": "Email exists"}), 400
 
     except Exception as e:
+        print("Register Error:", str(e))
         db.rollback()
         return jsonify({
             "message": "Registration failed",
@@ -257,7 +258,7 @@ def reserve():
         )
 
         db.commit()
-        socketio.emit('slots_updated', broadcast=True)
+        socketio.emit('slots_updated')
         return jsonify({"message": "Reserved successfully"})
 
     except Exception as e:
@@ -295,7 +296,7 @@ def release():
         )
 
         db.commit()
-        socketio.emit('slots_updated', broadcast=True)
+        socketio.emit('slots_updated')
         return jsonify({"message": "Released"})
 
     except Exception as e:

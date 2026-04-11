@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -13,98 +14,177 @@
     .box {
       background: white;
       padding: 20px;
-      margin: 50px auto;
-      width: 300px;
+      margin: 40px auto;
+      width: 320px;
       border-radius: 10px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
 
-    input {
+    input, select {
       width: 90%;
-      padding: 8px;
-      margin: 5px;
+      padding: 10px;
+      margin: 6px;
     }
 
     button {
       padding: 10px;
       margin-top: 10px;
       cursor: pointer;
+      width: 95%;
+    }
+
+    .title {
+      margin-top: 20px;
+    }
+
+    .error {
+      color: red;
+      font-size: 13px;
+    }
+
+    .success {
+      color: green;
+      font-size: 13px;
     }
   </style>
 </head>
 
 <body>
 
-<h1>🚗 Smart Parking System</h1>
+<h1 class="title">🚗 Smart Parking System</h1>
 
 <div class="box">
   <h2>Login</h2>
-  <input id="loginEmail" placeholder="Email"><br>
-  <input id="loginPassword" type="password" placeholder="Password"><br>
+
+  <input id="loginEmail" placeholder="Email">
+  <input id="loginPassword" type="password" placeholder="Password">
+
   <button onclick="login()">Login</button>
+
+  <p id="loginMsg"></p>
 </div>
 
 <div class="box">
   <h2>Register</h2>
-  <input id="fullname" placeholder="Full Name"><br>
-  <input id="email" placeholder="Email"><br>
-  <input id="password" type="password" placeholder="Password"><br>
 
-  <select id="role">
+  <input id="regName" placeholder="Full Name">
+  <input id="regEmail" placeholder="Email">
+  <input id="regPassword" type="password" placeholder="Password">
+
+  <select id="regRole">
     <option value="student">Student</option>
     <option value="staff">Staff</option>
-    <option value="security">Security</option>
-  </select><br>
+    <option value="admin">Admin</option>
+  </select>
 
   <button onclick="register()">Register</button>
+
+  <p id="regMsg"></p>
 </div>
 
 <script>
+
 const API = "http://127.0.0.1:5000";
 
-async function login(){
-  let res = await fetch(API + "/login", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      email: loginEmail.value,
-      password: loginPassword.value
-    })
-  });
+/* ===== LOGIN ===== */
+async function login() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value.trim();
+  const msg = document.getElementById("loginMsg");
 
-  let data = await res.json();
+  msg.innerText = "";
 
-  if(res.ok){
+  if (!email || !password) {
+    msg.innerText = "Please fill all fields";
+    msg.className = "error";
+    return;
+  }
+
+  try {
+    const res = await fetch(API + "/login", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      msg.innerText = data.message || "Login failed";
+      msg.className = "error";
+      return;
+    }
+
     localStorage.setItem("user", JSON.stringify(data.user));
 
-    redirectUser(data.user.role);
-  } else {
-    alert(data.message);
+    msg.innerText = "Login successful!";
+    msg.className = "success";
+
+    setTimeout(() => redirectUser(data.user.role), 500);
+
+  } catch (err) {
+    msg.innerText = "Server error";
+    msg.className = "error";
   }
 }
 
-async function register(){
-  let res = await fetch(API + "/register", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      name: fullname.value,
-      email: email.value,
-      password: password.value,
-      role: role.value
-    })
-  });
+/* ===== REGISTER ===== */
+async function register() {
+  const name = document.getElementById("regName").value.trim();
+  const email = document.getElementById("regEmail").value.trim();
+  const password = document.getElementById("regPassword").value.trim();
+  const role = document.getElementById("regRole").value;
+  const msg = document.getElementById("regMsg");
 
-  let data = await res.json();
-  alert(data.message + (data.error ? "\n" + data.error : ""));
+  msg.innerText = "";
+
+  if (!name || !email || !password) {
+    msg.innerText = "All fields are required";
+    msg.className = "error";
+    return;
+  }
+
+  try {
+    const res = await fetch(API + "/register", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ name, email, password, role })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      msg.innerText = data.message || "Registration failed";
+      msg.className = "error";
+      return;
+    }
+
+    msg.innerText = "Registration successful!";
+    msg.className = "success";
+
+  } catch (err) {
+    msg.innerText = "Server error";
+    msg.className = "error";
+  }
 }
 
-function redirectUser(role){
-  if(role === "student") window.location = "student.html";
-  else if(role === "staff") window.location = "staff.html";
-  else if(role === "security") window.location = "security.html";
-  else if(role === "admin") window.location = "admin.html";
+/* ===== REDIRECT ===== */
+function redirectUser(role) {
+  switch(role) {
+    case "student":
+      window.location.href = "student.html";
+      break;
+    case "staff":
+      window.location.href = "staff.html";
+      break;
+    case "admin":
+      window.location.href = "admin.html";
+      break;
+    default:
+      window.location.href = "index.html";
+  }
 }
+
 </script>
 
 </body>
