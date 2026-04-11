@@ -3,97 +3,200 @@
 <html>
 <head>
 <title>Admin Dashboard</title>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<style>
+body {
+  font-family: Arial;
+  background: #f4f6f8;
+  text-align: center;
+}
+
+h1 {
+  margin-top: 20px;
+}
+
+.section {
+  margin: 20px auto;
+  width: 80%;
+}
+
+.card {
+  background: white;
+  padding: 12px;
+  margin: 8px auto;
+  width: 350px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+button {
+  padding: 5px;
+  margin: 3px;
+  cursor: pointer;
+}
+</style>
 </head>
+
 <body>
 
 <h1>🛠 Admin Control Center</h1>
 <button onclick="logout()">Logout</button>
 
-<h2>Slots</h2>
-<div id="slots"></div>
+<div class="section">
+  <h2>Slots</h2>
+  <div id="slots">Loading slots...</div>
+</div>
 
-<h2>System Logs</h2>
-<div id="logs"></div>
+<div class="section">
+  <h2>System Logs</h2>
+  <div id="logs">Loading logs...</div>
+</div>
 
-<h2>Users</h2>
-<div id="users"></div>
+<div class="section">
+  <h2>Users</h2>
+  <div id="users">Loading users...</div>
+</div>
 
 <script>
-const API="http://127.0.0.1:5000";
-let user = JSON.parse(localStorage.getItem("user"));
 
-if(!user || user.role !== "admin") window.location="index.html";
+const API = "http://127.0.0.1:5000";
+const socket = io(API);
 
-function logout(){
-  localStorage.clear();
-  window.location="index.html";
+let user = null;
+
+try {
+  user = JSON.parse(localStorage.getItem("user"));
+} catch (e) {
+  user = null;
 }
 
-async function fetchSlots(){
-  let res = await fetch(API+"/slots");
-  let data = await res.json();
+if (!user || user.role !== "admin") {
+  window.location = "index.html";
+}
 
-  let html="";
-  data.forEach(slot=>{
-    html += `
-      <div>
-        ${slot.slot_number} - ${slot.status}
+/* ---------------- SOCKET CONNECTION ---------------- */
+socket.on("connect", () => {
+  console.log("Admin connected");
+  loadAll(); // IMPORTANT: initial load after connection
+});
+
+socket.on("slots_updated", () => fetchSlots());
+socket.on("logs_updated", () => fetchLogs());
+socket.on("users_updated", () => fetchUsers());
+
+/* ---------------- INIT ---------------- */
+loadAll();
+
+/* ---------------- LOAD ALL ---------------- */
+function loadAll(){
+  fetchSlots();
+  fetchLogs();
+  fetchUsers();
+}
+
+/* ---------------- LOGOUT ---------------- */
+function logout(){
+  localStorage.clear();
+  window.location = "index.html";
+}
+
+/* ---------------- SLOTS ---------------- */
+async function fetchSlots(){
+  try {
+    let res = await fetch(API + "/slots");
+    let data = await res.json();
+
+    if (!data.length) {
+      document.getElementById("slots").innerHTML = "No slots found";
+      return;
+    }
+
+    document.getElementById("slots").innerHTML = data.map(slot => `
+      <div class="card">
+        <b>Slot ${slot.slot_number}</b><br>
+        Status: ${slot.status}<br>
+
         <button onclick="reserve(${slot.id})">Reserve</button>
         <button onclick="release(${slot.id})">Release</button>
       </div>
-    `;
-  });
+    `).join("");
 
-  slots.innerHTML=html;
+  } catch (err) {
+    document.getElementById("slots").innerHTML = "Error loading slots";
+  }
 }
 
+/* ---------------- LOGS ---------------- */
 async function fetchLogs(){
-  let res = await fetch(API+"/logs");
-  let data = await res.json();
+  try {
+    let res = await fetch(API + "/logs");
+    let data = await res.json();
 
-  logs.innerHTML = data.map(l =>
-    `<div>${l.vehicle_plate} | ${l.entry_time}</div>`
-  ).join("");
+    if (!data.length) {
+      document.getElementById("logs").innerHTML = "No logs yet";
+      return;
+    }
+
+    document.getElementById("logs").innerHTML = data.map(l => `
+      <div class="card">
+        Plate: ${l.vehicle_plate || "N/A"}<br>
+        Time: ${l.entry_time || ""}
+      </div>
+    `).join("");
+
+  } catch (err) {
+    document.getElementById("logs").innerHTML = "Error loading logs";
+  }
 }
 
+/* ---------------- USERS ---------------- */
 async function fetchUsers(){
-  let res = await fetch(API+"/users");
-  let data = await res.json();
+  try {
+    let res = await fetch(API + "/users");
+    let data = await res.json();
 
-  users.innerHTML = data.map(u =>
-    `<div>${u.name} (${u.role})</div>`
-  ).join("");
+    if (!data.length) {
+      document.getElementById("users").innerHTML = "No users found";
+      return;
+    }
+
+    document.getElementById("users").innerHTML = data.map(u => `
+      <div class="card">
+        ${u.name} (${u.role})
+      </div>
+    `).join("");
+
+  } catch (err) {
+    document.getElementById("users").innerHTML = "Error loading users";
+  }
 }
 
+/* ---------------- ACTIONS ---------------- */
 async function reserve(id){
-  await fetch(API+"/reserve",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
+  await fetch(API + "/reserve", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
     body: JSON.stringify({
-      slot_id:id,
-      user_id:user.id,
-      role:user.role
+      slot_id: id,
+      user_id: user.id,
+      role: user.role
     })
   });
 }
 
 async function release(id){
-  await fetch(API+"/release",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
+  await fetch(API + "/release", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
     body: JSON.stringify({
-      slot_id:id,
-      user_id:user.id,
-      role:user.role
+      slot_id: id,
+      role: user.role
     })
   });
 }
 
-setInterval(()=>{
-  fetchSlots();
-  fetchLogs();
-  fetchUsers();
-},3000);
 </script>
 
 </body>
