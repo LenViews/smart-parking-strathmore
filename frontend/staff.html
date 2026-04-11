@@ -1,59 +1,130 @@
+
 <!DOCTYPE html>
 <html>
 <head>
 <title>Staff Dashboard</title>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<style>
+body {
+  font-family: Arial;
+  background: #f4f6f8;
+  text-align: center;
+}
+
+h1 {
+  margin-top: 20px;
+}
+
+.card {
+  background: white;
+  padding: 12px;
+  margin: 8px auto;
+  width: 350px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+button {
+  padding: 6px;
+  margin-top: 5px;
+  cursor: pointer;
+}
+
+.free { color: green; }
+.reserved { color: orange; }
+.occupied { color: red; }
+</style>
 </head>
+
 <body>
 
 <h1>👨‍💼 Staff Dashboard</h1>
 <button onclick="logout()">Logout</button>
 
-<div id="slots"></div>
+<h2>Available Slots</h2>
+<div id="slots">Loading...</div>
 
 <script>
+
 const API = "http://127.0.0.1:5000";
-let user = JSON.parse(localStorage.getItem("user"));
+const socket = io(API);
 
-if(!user || user.role !== "staff") window.location="index.html";
+let user = null;
 
+try {
+  user = JSON.parse(localStorage.getItem("user"));
+} catch (e) {
+  user = null;
+}
+
+if (!user || user.role !== "staff") {
+  window.location = "index.html";
+}
+
+/* ---------------- SOCKET EVENTS ---------------- */
+socket.on("connect", () => {
+  console.log("Staff connected");
+  fetchSlots();
+});
+
+socket.on("slots_updated", () => {
+  fetchSlots();
+});
+
+/* ---------------- LOGOUT ---------------- */
 function logout(){
   localStorage.clear();
-  window.location="index.html";
+  window.location = "index.html";
 }
 
+/* ---------------- LOAD SLOTS ---------------- */
 async function fetchSlots(){
-  let res = await fetch(API+"/slots");
-  let data = await res.json();
+  try {
+    let res = await fetch(API + "/slots");
+    let data = await res.json();
 
-  let html = "";
+    if (!data.length) {
+      document.getElementById("slots").innerHTML = "No slots available";
+      return;
+    }
 
-  data.forEach(slot=>{
-    html += `
-      <div>
-        ${slot.slot_number} - ${slot.status}
-        <button onclick="reserve(${slot.id})">Quick Reserve</button>
+    document.getElementById("slots").innerHTML = data.map(slot => `
+      <div class="card">
+        <b>Slot ${slot.slot_number}</b><br>
+        Status: <span class="${slot.status.toLowerCase()}">${slot.status}</span><br>
+
+        ${slot.status === "FREE" ? `
+          <button onclick="reserve(${slot.id})">Quick Reserve</button>
+        ` : ""}
       </div>
-    `;
-  });
+    `).join("");
 
-  slots.innerHTML = html;
+  } catch (err) {
+    document.getElementById("slots").innerHTML = "Error loading slots";
+  }
 }
 
+/* ---------------- RESERVE ---------------- */
 async function reserve(id){
-  let res = await fetch(API+"/reserve",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
+  let res = await fetch(API + "/reserve", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
     body: JSON.stringify({
-      slot_id:id,
-      user_id:user.id,
-      role:user.role
+      slot_id: id,
+      user_id: user.id,
+      role: user.role
     })
   });
 
-  alert((await res.json()).message);
+  let data = await res.json();
+  alert(data.message);
 }
 
-setInterval(fetchSlots,1000);
+/* ---------------- INIT ---------------- */
+fetchSlots();
+
 </script>
 
 </body>
