@@ -1,25 +1,28 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Student Dashboard</title>
+<title>Student Dashboard</title>
 </head>
 <body>
 
 <h1>🎓 Student Dashboard</h1>
 <button onclick="logout()">Logout</button>
 
+<h2>Available Slots</h2>
 <div id="slots"></div>
+
+<h2>My Reservations</h2>
+<div id="myReservations"></div>
 
 <script>
 const API = "http://127.0.0.1:5000";
 let user = JSON.parse(localStorage.getItem("user"));
 
-if(!user || user.role !== "student"){
-  window.location = "index.html";
-}
+if(!user || user.role !== "student") window.location = "index.html";
 
 function logout(){
-  localStorage.removeItem("user");
+  localStorage.clear();
   window.location = "index.html";
 }
 
@@ -45,7 +48,7 @@ async function fetchSlots(){
 async function reserve(id){
   let res = await fetch(API + "/reserve", {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
+    headers: {"Content-Type":"application/json"},
     body: JSON.stringify({
       slot_id: id,
       user_id: user.id,
@@ -53,11 +56,43 @@ async function reserve(id){
     })
   });
 
-  let data = await res.json();
-  alert(data.message);
+  alert((await res.json()).message);
 }
 
-setInterval(fetchSlots, 1000);
+async function fetchMyReservations(){
+  let res = await fetch(API + "/my_reservations?user_id=" + user.id);
+  let data = await res.json();
+
+  let html = "";
+
+  data.forEach(r => {
+    html += `
+      <div>
+        Slot ${r.slot_id}
+        <button onclick="cancel(${r.slot_id})">Cancel</button>
+      </div>
+    `;
+  });
+
+  myReservations.innerHTML = html;
+}
+
+async function cancel(id){
+  await fetch(API + "/release", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      slot_id:id,
+      user_id:user.id,
+      role:user.role
+    })
+  });
+}
+
+setInterval(()=>{
+  fetchSlots();
+  fetchMyReservations();
+},1000);
 </script>
 
 </body>
