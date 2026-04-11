@@ -1,42 +1,66 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Security Dashboard</title>
+<title>Security Dashboard</title>
 </head>
 <body>
 
-<h1>🛡 Security Monitoring</h1>
+<h1>🛡 Security Control Panel</h1>
 <button onclick="logout()">Logout</button>
 
+<h2>Live Parking Status</h2>
 <div id="slots"></div>
 
+<h2>Entry Logs</h2>
+<div id="logs"></div>
+
+<button onclick="openGate()">Open Gate</button>
+
 <script>
-const API = "http://127.0.0.1:5000";
+const API="http://127.0.0.1:5000";
 let user = JSON.parse(localStorage.getItem("user"));
 
-if(!user || user.role !== "security"){
-  window.location = "index.html";
-}
+if(!user || user.role !== "security") window.location="index.html";
 
 function logout(){
-  localStorage.removeItem("user");
-  window.location = "index.html";
+  localStorage.clear();
+  window.location="index.html";
 }
 
 async function fetchSlots(){
-  let res = await fetch(API + "/slots");
+  let res = await fetch(API+"/slots");
   let data = await res.json();
 
-  let html = "";
-
-  data.forEach(slot => {
+  let html="";
+  data.forEach(slot=>{
     html += `<div>${slot.slot_number} - ${slot.status}</div>`;
   });
 
-  slots.innerHTML = html;
+  slots.innerHTML=html;
 }
 
-setInterval(fetchSlots, 1000);
+async function fetchLogs(){
+  let res = await fetch(API+"/logs");
+  let data = await res.json();
+
+  let html="";
+  data.forEach(log=>{
+    html += `<div>${log.vehicle_plate} | ${log.entry_time} → ${log.exit_time || "IN"}</div>`;
+  });
+
+  logs.innerHTML=html;
+}
+
+async function openGate(){
+  await fetch(API+"/open_gate", {method:"POST"});
+  alert("Gate triggered");
+}
+
+setInterval(()=>{
+  fetchSlots();
+  fetchLogs();
+},1000);
 </script>
 
 </body>
