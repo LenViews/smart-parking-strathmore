@@ -213,7 +213,44 @@ def release():
 
     return jsonify({"message": "Released"})
     
-# ------------------
+# -------------------- USER RESERVATIONS ---------------
+
+@app.route('/my_reservations')
+def my_reservations():
+    user_id = request.args.get('user_id')
+    cursor = db.cursor(MySQLdb.cursors.DictCursor)
+
+    cursor.execute("SELECT * FROM reservations WHERE user_id=%s", (user_id,))
+    return jsonify(cursor.fetchall())
+
+# -------------------- LOGS --------------------
+
+@app.route('/logs')
+def logs():
+    cursor = db.cursor(MySQLdb.cursors.DictCursor)
+    cursor.execute("SELECT * FROM entry_logs ORDER BY entry_time DESC LIMIT 20")
+    return jsonify(cursor.fetchall())
+
+
+# -------------------- USERS ---------------------
+# GET users (admin only ideally)
+
+@app.route('/users')
+def users():
+    cursor = db.cursor(MySQLdb.cursors.DictCursor)
+    cursor.execute("SELECT id,name,role FROM users")
+    return jsonify(cursor.fetchall())
+
+
+# --------------------- GATE ----------------------
+# OPEN GATE (simulate servo trigger)
+
+@app.route('/open_gate', methods=['POST'])
+def open_gate():
+    print("Gate Open Triggered")
+    return jsonify({"message":"Gate opened"})
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
