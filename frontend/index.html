@@ -4,6 +4,8 @@
 <head>
   <title>Smart Parking Dashboard</title>
 
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
   <style>
     body {
       font-family: Arial;
@@ -11,13 +13,9 @@
       background: #f4f6f8;
     }
 
-    h1 {
-      margin-top: 20px;
-    }
+    h1 { margin-top: 20px; }
 
-    .top-bar {
-      margin: 20px;
-    }
+    .top-bar { margin: 20px; }
 
     button {
       margin-top: 5px;
@@ -25,7 +23,6 @@
       cursor: pointer;
     }
 
-    /* ===== PARKING LAYOUT ===== */
     .parking-lot {
       display: flex;
       flex-direction: column;
@@ -40,7 +37,6 @@
       justify-content: center;
     }
 
-    /* 45° angled slot */
     .slot {
       width: 90px;
       height: 150px;
@@ -50,11 +46,9 @@
       justify-content: center;
       align-items: center;
       transform: rotate(45deg);
-      position: relative;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
 
-    /* Fix text rotation */
     .slot-content {
       transform: rotate(-45deg);
       text-align: center;
@@ -65,7 +59,6 @@
     .RESERVED { background: #f39c12; }
     .OCCUPIED { background: #e74c3c; }
 
-    /* Driving lane */
     .lane {
       width: 45%;
       height: 80px;
@@ -86,7 +79,7 @@
 
 <h1>🚗 Smart Parking System</h1>
 
-<p>Welcome! Please login or register to access full features.</p>
+<p>Welcome! Please login to reserve parking slots.</p>
 
 <div class="top-bar">
   <a href="auth.html">
@@ -96,127 +89,92 @@
 
 <div id="summary" class="summary"></div>
 
-<!-- ANGLED PARKING LOT -->
 <div class="parking-lot" id="slots"></div>
 
 <h2>Gate Simulation</h2>
-<input id="plate" placeholder="Plate Number"><br><br>
+
+<input id="plate" placeholder="Plate Number">
+<br><br>
+
 <button onclick="entry()">Entry</button>
-<button onclick="exit()">Exit</button>
+<button onclick="exitVehicle()">Exit</button>
 
 <script>
-let currentUser = null;
-const API = 'http://127.0.0.1:5000';
 
-/* ===== RESERVE ===== */
-async function reserve(slotId){
-  if(!currentUser) return alert("Login first");
+const slotsEl = document.getElementById("slots");
+const summaryEl = document.getElementById("summary");
+const plateInput = document.getElementById("plate");
 
-  let res = await fetch(API + '/reserve', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      slot_id: slotId,
-      user_id: currentUser.id,
-      role: currentUser.role
-    })
-  });
+const socket = io("http://127.0.0.1:5000");
+const API = "http://127.0.0.1:5000";
 
-  let data = await res.json();
-  alert(data.message);
-}
-
-/* ===== RELEASE ===== */
-async function release(slotId){
-  if(!currentUser) return alert("Login first");
-
-  let res = await fetch(API + '/release', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      slot_id: slotId,
-      user_id: currentUser.id,
-      role: currentUser.role
-    })
-  });
-
-  let data = await res.json();
-  alert(data.message);
-}
+socket.on("slots_updated", fetchSlots);
 
 /* ===== ENTRY ===== */
-async function entry(){
-  let res = await fetch(API + '/entry', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({plate: plate.value})
+async function entry() {
+  const res = await fetch(API + "/entry", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ plate: plateInput.value })
   });
 
-  let data = await res.json();
+  const data = await res.json();
   alert(data.message);
 }
 
 /* ===== EXIT ===== */
-async function exit(){
-  let res = await fetch(API + '/exit', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({plate: plate.value})
+async function exitVehicle() {
+  const res = await fetch(API + "/exit", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ plate: plateInput.value })
   });
 
-  let data = await res.json();
+  const data = await res.json();
   alert(data.message);
 }
 
-/* ===== FETCH + RENDER ANGLED LOT ===== */
-async function fetchSlots(){
-  let res = await fetch(API + '/slots');
-  let data = await res.json();
+/* ===== FETCH SLOTS ===== */
+async function fetchSlots() {
+  const res = await fetch(API + "/slots");
+  const data = await res.json();
 
   let occupied = 0;
 
-  // split into two angled rows
-  let mid = Math.ceil(data.length / 2);
-  let row1 = data.slice(0, mid);
-  let row2 = data.slice(mid);
+  const mid = Math.ceil(data.length / 2);
+  const row1 = data.slice(0, mid);
+  const row2 = data.slice(mid);
 
-  function renderRow(slotsArr){
+  function renderRow(arr) {
     return `
       <div class="row">
-        ${slotsArr.map(slot => {
-          if(slot.status === "OCCUPIED") occupied++;
+        ${arr.map(slot => {
+          if (slot.status === "OCCUPIED") occupied++;
 
           return `
             <div class="slot ${slot.status}">
               <div class="slot-content">
                 <b>${slot.slot_number}</b><br>
-                ${slot.status}<br>
-
-                ${slot.status === "FREE" && currentUser ?
-                  `<button onclick="reserve(${slot.id})">Reserve</button>` : ''}
-
-                ${slot.status === "RESERVED" && currentUser && currentUser.role === "admin" ?
-                  `<button onclick="release(${slot.id})">Release</button>` : ''}
+                ${slot.status}
               </div>
             </div>
           `;
-        }).join('')}
+        }).join("")}
       </div>
     `;
   }
 
-  slots.innerHTML = `
+  slotsEl.innerHTML = `
     ${renderRow(row1)}
     <div class="lane"></div>
     ${renderRow(row2)}
   `;
 
-  summary.innerHTML = `${occupied}/${data.length} occupied`;
+  summaryEl.innerText = `${occupied}/${data.length} occupied`;
 }
 
-/* ===== AUTO REFRESH ===== */
-setInterval(fetchSlots, 1000);
 fetchSlots();
+
 </script>
 
 </body>
