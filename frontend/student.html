@@ -88,6 +88,26 @@
             color: var(--primary);
         }
 
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 1rem;
+        }
+        .tab.active {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            font-weight: bold;
+        }
+
         /* Two-column layout */
         .grid-2 {
             display: grid;
@@ -149,22 +169,25 @@
             background: #d0f0d0;
         }
 
-        /* Reservations table */
-        .res-table {
+        /* Tables */
+        .res-table, .profile-table {
             width: 100%;
             border-collapse: collapse;
         }
-
-        .res-table th, .res-table td {
+        .res-table th, .res-table td, .profile-table td {
             text-align: left;
             padding: 10px;
             border-bottom: 1px solid #ddd;
         }
-
         .res-table th {
             background: #f2f2f2;
         }
-
+        .profile-table input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
         button {
             background: var(--primary);
             color: white;
@@ -173,10 +196,8 @@
             border-radius: 6px;
             cursor: pointer;
         }
-
         button.danger { background: var(--danger); }
         button.success { background: var(--success); }
-
         .toast {
             position: fixed;
             bottom: 20px;
@@ -189,9 +210,7 @@
             transition: 0.2s;
             z-index: 1000;
         }
-
         .toast.show { opacity: 1; }
-
         @media (max-width: 800px) {
             .grid-2 { grid-template-columns: 1fr; }
         }
@@ -222,38 +241,59 @@
         </div>
     </div>
 
-    <div class="grid-2">
-        <!-- Left: Slot map -->
-        <div class="card">
-            <h3>🅿️ Parking Slots (click FREE slot to reserve)</h3>
-            <div id="slotsContainer" class="slot-grid">Loading slots...</div>
-            <div style="margin-top: 10px; font-size:0.8rem;">
-                <span style="color:var(--success)">⬤ Free (click to reserve)</span>
-                <span style="color:var(--warning)">⬤ Reserved</span>
-                <span style="color:var(--danger)">⬤ Occupied</span>
-            </div>
-            <p style="font-size:0.75rem; color:#666; margin-top:8px;">⏱️ Reservations expire after 10 minutes</p>
-        </div>
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" data-tab="parking">🅿️ Parking</button>
+        <button class="tab" data-tab="profile">👤 My Profile</button>
+        <button class="tab" data-tab="logs">📋 My Entry Logs</button>
+    </div>
 
-        <!-- Right: My reservations -->
-        <div class="card">
-            <h3>📅 My Active Reservations</h3>
-            <div id="myReservationsContainer" style="max-height: 400px; overflow-y: auto;">
-                Loading...
+    <!-- Parking Tab (default) -->
+    <div id="parkingTab">
+        <div class="grid-2">
+            <div class="card">
+                <h3>🅿️ Parking Slots (click FREE to reserve)</h3>
+                <div id="slotsContainer" class="slot-grid">Loading slots...</div>
+                <div style="margin-top: 10px; font-size:0.8rem;">
+                    <span style="color:var(--success)">⬤ Free (click to reserve)</span>
+                    <span style="color:var(--warning)">⬤ Reserved</span>
+                    <span style="color:var(--danger)">⬤ Occupied</span>
+                </div>
+                <p style="font-size:0.75rem; color:#666; margin-top:8px;">⏱️ Reservations expire after 10 minutes</p>
+            </div>
+            <div class="card">
+                <h3>📅 My Active Reservations</h3>
+                <div id="myReservationsContainer" style="max-height: 400px; overflow-y: auto;">Loading...</div>
             </div>
         </div>
     </div>
 
-    <!-- Recent logs -->
-    <div class="card">
-        <h3>📋 Recent Entry/Exit Logs</h3>
-        <div style="max-height: 250px; overflow-y: auto;">
-            <table style="width:100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="background:#f2f2f2;"><th>Plate</th><th>Entry Time</th><th>Exit Time</th></tr>
-                </thead>
-                <tbody id="logsBody"></tbody>
-            </table>
+    <!-- Profile Tab -->
+    <div id="profileTab" style="display:none;">
+        <div class="card">
+            <h3>Edit Profile</h3>
+            <form id="profileForm">
+                <table class="profile-table">
+                    <tr><td style="width:120px;">Name:</td><td><input type="text" id="profileName" required></td></tr>
+                    <tr><td>Email:</td><td><input type="email" id="profileEmail" required></td></tr>
+                    <tr><td>Vehicle Plate:</td><td><input type="text" id="profilePlate" placeholder="e.g., ABC-1234"></td></tr>
+                    <tr><td>New Password:</td><td><input type="password" id="profilePassword" placeholder="Leave blank to keep unchanged"></td></tr>
+                </table>
+                <button type="button" onclick="updateProfile()">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- My Logs Tab -->
+    <div id="logsTab" style="display:none;">
+        <div class="card">
+            <h3>Your Vehicle Entry/Exit History</h3>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table style="width:100%; border-collapse: collapse;">
+                    <thead><tr style="background:#f2f2f2;"><th>Plate</th><th>Entry Time</th><th>Exit Time</th></tr></thead>
+                    <tbody id="myLogsBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -273,7 +313,6 @@
         setTimeout(() => t.classList.remove("show"), 3000);
     }
 
-    // Auth check (must be student or admin? For student page, require student role)
     async function checkAuth() {
         const userStr = localStorage.getItem("user");
         if (!userStr) {
@@ -287,7 +326,7 @@
             return false;
         }
         currentUser = user;
-        document.getElementById("userName").innerText = user.name || user.email || "Student";
+        document.getElementById("userName").innerText = user.name || user.email;
         return true;
     }
 
@@ -300,7 +339,7 @@
         return data;
     }
 
-    // Load all slots and update stats
+    // Load slots & stats
     async function loadSlots() {
         try {
             const slots = await apiCall("/slots");
@@ -310,20 +349,17 @@
                      data-id="${s.id}" 
                      data-status="${s.status}"
                      onclick="tryReserve(${s.id}, '${s.status}')">
-                    <b>${s.slot_number}</b><br>
-                    ${s.status}
+                    <b>${s.slot_number}</b><br>${s.status}
                 </div>
             `).join("");
             const free = slots.filter(s => s.status === "FREE").length;
             const total = slots.length;
             document.getElementById("freeCount").innerText = free;
             document.getElementById("totalSlots").innerText = total;
-        } catch(e) {
-            toast("Failed to load slots", true);
-        }
+        } catch(e) { toast("Failed to load slots", true); }
     }
 
-    // Load my reservations using /my_reservations?user_id=...
+    // Load my reservations
     async function loadMyReservations() {
         try {
             const reservations = await apiCall(`/my_reservations?user_id=${currentUser.id}`);
@@ -331,10 +367,9 @@
             document.getElementById("myResCount").innerText = active.length;
             const container = document.getElementById("myReservationsContainer");
             if (active.length === 0) {
-                container.innerHTML = "<p style='color:#666;'>No active reservations. Click a free slot above to reserve.</p>";
+                container.innerHTML = "<p>No active reservations.</p>";
                 return;
             }
-            // Need slot numbers – fetch slots to map
             const slots = await apiCall("/slots");
             const slotMap = {};
             slots.forEach(s => { slotMap[s.id] = s.slot_number; });
@@ -353,56 +388,60 @@
                     </tbody>
                 </table>
             `;
-        } catch(e) {
-            document.getElementById("myReservationsContainer").innerHTML = `<p style="color:red;">Error loading reservations</p>`;
-        }
+        } catch(e) { container.innerHTML = "<p>Error loading reservations</p>"; }
     }
 
-    // Try to reserve a slot
     async function tryReserve(slotId, status) {
-        if (status !== "FREE") {
-            toast("This slot is not available for reservation", true);
-            return;
-        }
+        if (status !== "FREE") { toast("Slot not available", true); return; }
         try {
-            await apiCall("/reserve", "POST", {
-                slot_id: slotId,
-                user_id: currentUser.id,
-                role: currentUser.role
-            });
-            toast(`Slot reserved! Expires in 10 minutes.`);
-            loadSlots();
-            loadMyReservations();
-        } catch(e) {
-            toast(e.message, true);
-        }
+            await apiCall("/reserve", "POST", { slot_id: slotId, user_id: currentUser.id, role: currentUser.role });
+            toast("Reserved for 10 minutes");
+            loadSlots(); loadMyReservations();
+        } catch(e) { toast(e.message, true); }
     }
 
-    // Cancel my reservation for a given slot_id
     async function cancelReservation(slotId) {
         if (!confirm("Cancel this reservation?")) return;
         try {
-            await apiCall("/cancel_reservation", "POST", {
-                slot_id: slotId,
-                user_id: currentUser.id
-            });
-            toast("Reservation cancelled");
-            loadSlots();
-            loadMyReservations();
-        } catch(e) {
-            toast(e.message, true);
-        }
+            await apiCall("/cancel_reservation", "POST", { slot_id: slotId, user_id: currentUser.id });
+            toast("Cancelled");
+            loadSlots(); loadMyReservations();
+        } catch(e) { toast(e.message, true); }
     }
 
-    // Load entry logs (read-only)
-    async function loadLogs() {
+    // Profile functions
+    async function loadProfile() {
         try {
-            const logs = await apiCall("/logs");
-            const tbody = document.getElementById("logsBody");
-            if (logs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3">No logs</td></tr>';
-                return;
-            }
+            const profile = await apiCall(`/profile?user_id=${currentUser.id}`);
+            document.getElementById("profileName").value = profile.name || "";
+            document.getElementById("profileEmail").value = profile.email || "";
+            document.getElementById("profilePlate").value = profile.vehicle_plate || "";
+        } catch(e) { toast("Failed to load profile", true); }
+    }
+
+    async function updateProfile() {
+        const name = document.getElementById("profileName").value.trim();
+        const email = document.getElementById("profileEmail").value.trim();
+        const vehicle_plate = document.getElementById("profilePlate").value.trim();
+        const password = document.getElementById("profilePassword").value;
+        if (!name || !email) { toast("Name and email required", true); return; }
+        try {
+            await apiCall("/profile", "PUT", { user_id: currentUser.id, name, email, vehicle_plate, password });
+            toast("Profile updated");
+            // Update stored user name
+            currentUser.name = name;
+            localStorage.setItem("user", JSON.stringify(currentUser));
+            document.getElementById("userName").innerText = name;
+            document.getElementById("profilePassword").value = "";
+        } catch(e) { toast(e.message, true); }
+    }
+
+    // Load MY logs (filtered by user_id)
+    async function loadMyLogs() {
+        try {
+            const logs = await apiCall(`/logs?user_id=${currentUser.id}`);
+            const tbody = document.getElementById("myLogsBody");
+            if (!logs.length) { tbody.innerHTML = '<tr><td colspan="3">No entry records found</td></tr>'; return; }
             tbody.innerHTML = logs.map(l => `
                 <tr>
                     <td>${l.vehicle_plate || "—"}</td>
@@ -410,45 +449,39 @@
                     <td>${l.exit_time ? new Date(l.exit_time).toLocaleString() : "—"}</td>
                 </tr>
             `).join("");
-        } catch(e) {
-            console.error("Logs error", e);
-        }
+        } catch(e) { console.error(e); tbody.innerHTML = '<tr><td colspan="3">Error loading logs</td></tr>'; }
     }
 
-    function logout() {
-        localStorage.clear();
-        window.location.href = "auth.html";
+    // Tab switching
+    function switchTab(tabId) {
+        document.getElementById("parkingTab").style.display = tabId === "parking" ? "block" : "none";
+        document.getElementById("profileTab").style.display = tabId === "profile" ? "block" : "none";
+        document.getElementById("logsTab").style.display = tabId === "logs" ? "block" : "none";
+        document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+        document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add("active");
+        if (tabId === "profile") loadProfile();
+        if (tabId === "logs") loadMyLogs();
     }
+
+    // Logout
+    function logout() { localStorage.clear(); window.location.href = "index.html"; }
 
     // Socket events
-    socket.on("slots_updated", () => {
-        loadSlots();
-    });
-    socket.on("reservation_created", (data) => {
-        if (data.user_id === currentUser.id) {
-            toast("Your reservation confirmed");
-            loadMyReservations();
-        }
-        loadSlots();
-    });
-    socket.on("reservation_cancelled", (data) => {
-        if (data.user_id === currentUser.id) {
-            toast("Your reservation was cancelled");
-            loadMyReservations();
-        }
-        loadSlots();
-    });
-    socket.on("system_warning", (data) => {
-        if (data.message.includes("FULL")) {
-            toast("⚠️ Parking lot is full", true);
-        }
-    });
+    socket.on("slots_updated", () => loadSlots());
+    socket.on("reservation_created", (data) => { if (data.user_id === currentUser.id) { loadMyReservations(); } loadSlots(); });
+    socket.on("reservation_cancelled", (data) => { if (data.user_id === currentUser.id) { loadMyReservations(); } loadSlots(); });
+    socket.on("system_warning", (data) => { if (data.message.includes("FULL")) toast("⚠️ Parking lot full", true); });
+    socket.on("logs_updated", () => { if (document.getElementById("logsTab").style.display !== "none") loadMyLogs(); });
 
-    // Initial load
+    // Init
     checkAuth().then(() => {
         loadSlots();
         loadMyReservations();
-        loadLogs();
+        // Setup tab listeners
+        document.querySelectorAll(".tab").forEach(tab => {
+            tab.addEventListener("click", () => switchTab(tab.getAttribute("data-tab")));
+        });
+        switchTab("parking");
     });
 </script>
 </body>
