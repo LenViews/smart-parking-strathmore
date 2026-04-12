@@ -65,6 +65,25 @@ def get_slots():
     cursor.close()
     return jsonify(data)
 
+# ------------------ ADD SLOTS -----------------
+@app.route('/add_slot', methods=['POST'])
+def add_slot():
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("INSERT INTO parking_slots (status) VALUES ('FREE')")
+
+    user_id = request.json.get('user_id')
+
+    cursor.execute(
+        "INSERT INTO audit_logs (user_id, action) VALUES (%s, %s)",
+        (user_id, "Added new parking slot")
+    )
+
+    db.commit()
+
+    socketio.emit('slots_updated')
+    return jsonify({"message": "Slot added"})
 
 # ------------------ UPDATE SLOT ------------------
 
@@ -102,6 +121,48 @@ def update_slot():
     finally:
         cursor.close()
 
+# --------------- DELETE SLOT ---------------
+@app.route('/delete_slot', methods=['POST'])
+def delete_slot():
+    db = get_db()
+    cursor = db.cursor()
+
+    slot_id = request.json.get('slot_id')
+
+    cursor.execute("DELETE FROM parking_slots WHERE id=%s", (slot_id,))
+
+    user_id = request.json.get('user_id')
+
+    cursor.execute(
+        "INSERT INTO audit_logs (user_id, action) VALUES (%s, %s)",
+        (user_id, f"Deleted slot {slot_id}")
+    )
+
+    db.commit()
+
+    socketio.emit('slots_updated')
+    return jsonify({"message": "Slot removed"})
+
+# --------------- FORCE FREE ALL SLOTS --------------
+@app.route('/force_free_all', methods=['POST'])
+def force_free_all():
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute("DELETE FROM reservations")
+    cursor.execute("UPDATE parking_slots SET status='FREE'")
+
+    user_id = request.json.get('user_id')
+
+    cursor.execute(
+        "INSERT INTO audit_logs (user_id, action) VALUES (%s, %s)",
+        (user_id, "Emergency reset: all slots freed")
+    )
+
+    db.commit()
+    socketio.emit('slots_updated')
+
+    return jsonify({"message": "All slots freed"})
 
 # ------------------ ENTRY ------------------
 
@@ -209,17 +270,22 @@ def login():
 
     cursor.close()
 
-    if user and check_password_hash(user['password'], data['password']):
-        return jsonify({
-            "user": {
-                "id": user['id'],
-                "name": user['name'],
-                "role": user['role']
-            }
-        })
+    if not user:
+        return jsonify({"message": "User not found"}), 404
 
-    return jsonify({"message": "Invalid credentials"}), 401
+    if not user.get('active', True):
+        return jsonify({"message": "Account is disabled"}), 403
 
+    if not check_password_hash(user['password'], data['password']):
+        return jsonify({"message": "Invalid credentials"}), 401
+
+    return jsonify({
+        "user": {
+        "id": user['id'],
+        "name": user['name'],
+        "role": user['role']
+    }
+    })
 
 # ------------------ RESERVE ------------------
 
@@ -273,6 +339,11 @@ def reserve():
             (slot_id, user_id, expiry)
         )
 
+        cursor.execute(
+            "INSERT INTO audit_logs (user_id, action) VALUES (%s, %s)",
+            (user_id, f"Reserved slot {slot_id}")
+        )
+
         db.commit()
         socketio.emit('reservation_created', {
             "slot_id": slot_id,
@@ -294,6 +365,8 @@ def release():
     db = get_db()
     cursor = db.cursor()
 
+    user_id = data.get('user_id')
+
     data = request.json
     role = data.get('role')
 
@@ -311,6 +384,11 @@ def release():
         cursor.execute(
             "UPDATE parking_slots SET status='FREE' WHERE id=%s",
             (slot_id,)
+        )
+
+        cursor.execute(
+            "INSERT INTO audit_logs (user_id, action) VALUES (%s, %s)",
+            (user_id, f"Admin released slot {slot_id}")
         )
 
         db.commit()
@@ -365,6 +443,11 @@ def cancel_reservation():
             (slot_id,)
         )
 
+        cursor.execute(
+            "INSERT INTO audit_logs (user_id, action) VALUES (%s, %s)",
+            (user_id, f"Cancelled reservation for slot {slot_id}")
+        )
+
         db.commit()
 
         socketio.emit('reservation_cancelled', {
@@ -382,6 +465,34 @@ def cancel_reservation():
 
     finally:
         cursor.close()
+
+#  ----------------- ANALYTICS -------------------
+@app.route('/analytics')
+def analytics():
+    db = get_db()
+    cursor = db.cursor(MySQLdb.cursors.DictCursor)
+
+    # occupancy
+    cursor.execute("SELECT COUNT(*) as total FROM parking_slots")
+    total = cursor.fetchone()['total']
+
+    cursor.execute("SELECT COUNT(*) as occupied FROM parking_slots WHERE status='OCCUPIED'")
+    occupied = cursor.fetchone()['occupied']
+
+    # reservations today
+    cursor.execute("""
+        SELECT COUNT(*) as today_reservations
+        FROM reservations
+        WHERE DATE(created_at) = CURDATE()
+    """)
+    today = cursor.fetchone()['today_reservations']
+
+    return jsonify({
+        "occupancy_rate": round((occupied/total)*100, 2) if total else 0,
+        "occupied": occupied,
+        "total": total,
+        "today_reservations": today
+    })
 
 
 # ------------------ USER RESERVATIONS ------------------
@@ -421,11 +532,64 @@ def users():
     db = get_db()
     cursor = db.cursor(MySQLdb.cursors.DictCursor)
 
-    cursor.execute("SELECT id,name,role FROM users")
+    cursor.execute("SELECT id,name,role,active FROM users")
     data = cursor.fetchall()
 
     cursor.close()
     return jsonify(data)
+
+# ----------------- SUSPEND USER ---------------
+@app.route('/toggle_user', methods=['POST'])
+def toggle_user():
+    db = get_db()
+    cursor = db.cursor()
+
+    data = request.json
+
+    cursor.execute(
+        "UPDATE users SET active = NOT active WHERE id=%s",
+        (data['user_id'],)
+    )
+
+    admin_id = data.get('user_id')          # admin performing action
+    target_id = data.get('user_id')        # same here unless you separate
+
+    cursor.execute(
+        "INSERT INTO audit_logs (user_id, action) VALUES (%s, %s)",
+        (admin_id, f"Toggled active status for user {target_id}")
+    )
+
+    db.commit()
+    socketio.emit('users_updated')
+
+    return jsonify({"message": "User status updated"})
+
+# ----------------- PROMOTE USER --------------
+@app.route('/change_role', methods=['POST'])
+def change_role():
+    db = get_db()
+    cursor = db.cursor()
+
+    data = request.json
+
+    cursor.execute(
+        "UPDATE users SET role=%s WHERE id=%s",
+        (data['role'], data['user_id'])
+    )
+
+    admin_id = data.get('admin_id')
+    target_id = data.get('user_id')
+    new_role = data.get('role')
+
+    cursor.execute(
+        "INSERT INTO audit_logs (user_id, action) VALUES (%s, %s)",
+        (admin_id, f"Changed role of user {target_id} to {new_role}")
+    )
+
+    db.commit()
+    socketio.emit('users_updated')
+
+    return jsonify({"message": "Role updated"})
 
 
 # ------------------ GATE ------------------
