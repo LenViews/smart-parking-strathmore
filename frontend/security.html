@@ -1,163 +1,427 @@
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Security Dashboard</title>
+    <meta charset="UTF-8">
+    <title>Smart Parking – Security Console</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui;
+        }
 
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --bg: #ecf0f1;
+            --card: #ffffff;
+        }
 
-<style>
-body {
-  font-family: Arial;
-  background: #f4f6f8;
-  text-align: center;
-}
+        body {
+            background: var(--bg);
+            padding: 20px;
+        }
 
-h1 {
-  margin-top: 20px;
-}
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
 
-.section {
-  margin: 20px auto;
-  width: 80%;
-}
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card);
+            padding: 15px 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
 
-.card {
-  background: white;
-  padding: 10px;
-  margin: 8px auto;
-  width: 400px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
 
-button {
-  padding: 8px;
-  margin-top: 10px;
-  cursor: pointer;
-}
-</style>
+        .user-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .logout-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* Grid layout */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .card h3 {
+            margin-bottom: 15px;
+            color: var(--primary);
+            border-left: 4px solid var(--secondary);
+            padding-left: 12px;
+        }
+
+        /* Form */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        button {
+            background: var(--secondary);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button.success { background: var(--success); }
+        button.danger { background: var(--danger); }
+        button.warning { background: var(--warning); }
+
+        /* Slot grid */
+        .slot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .slot {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+            border-left: 3px solid;
+            font-size: 0.85rem;
+        }
+
+        .slot-free { border-left-color: var(--success); background: #e8f8f5; }
+        .slot-reserved { border-left-color: var(--warning); background: #fef9e7; }
+        .slot-occupied { border-left-color: var(--danger); background: #fdedec; }
+
+        /* Logs table */
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .logs-table th, .logs-table td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .logs-table th {
+            background: #f2f2f2;
+        }
+
+        .alert-banner {
+            background: var(--warning);
+            color: #333;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .alert-banner.show {
+            display: block;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #222;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: 0.2s;
+            z-index: 1000;
+        }
+
+        .toast.show { opacity: 1; }
+
+        @media (max-width: 800px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
-
 <body>
+<div class="container">
+    <div class="header">
+        <div class="logo">🛡️ SmartPark Security</div>
+        <div class="user-info">
+            <span id="userName">Security</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
 
-<h1>🛡 Security Control Panel</h1>
-<button onclick="logout()">Logout</button>
+    <div id="alertBanner" class="alert-banner">⚠️ Parking lot is FULL!</div>
 
-<div class="section">
-  <h2>Live Parking Status</h2>
-  <div id="slots">Loading...</div>
+    <div class="grid-2">
+        <!-- Left column: Entry/Exit + Gate -->
+        <div>
+            <div class="card">
+                <h3>🚗 Vehicle Entry</h3>
+                <div class="input-group">
+                    <input type="text" id="entryPlate" placeholder="License plate (e.g., KBC-123D)" autocomplete="off">
+                    <button onclick="logEntry()">Log Entry</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🚙 Vehicle Exit</h3>
+                <div class="input-group">
+                    <input type="text" id="exitPlate" placeholder="License plate" autocomplete="off">
+                    <button onclick="logExit()">Log Exit</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🚪 Gate Control</h3>
+                <button class="success" onclick="openGate()" style="width:100%">Open Gate</button>
+                <p style="font-size:0.8rem; margin-top:8px; color:#666;">Opens the parking barrier (simulated)</p>
+            </div>
+        </div>
+
+        <!-- Right column: Slot occupancy -->
+        <div class="card">
+            <h3>🅿️ Current Slot Status</h3>
+            <div id="slotsContainer" class="slot-grid">Loading slots...</div>
+            <div style="margin-top: 10px; font-size:0.8rem;">
+                <span style="color:var(--success)">⬤ Free</span>
+                <span style="color:var(--warning)">⬤ Reserved</span>
+                <span style="color:var(--danger)">⬤ Occupied</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent logs -->
+    <div class="card">
+        <h3>📋 Recent Entry/Exit Logs</h3>
+        <div style="max-height: 300px; overflow-y: auto;">
+            <table class="logs-table" id="logsTable">
+                <thead>
+                    <tr><th>Plate</th><th>Entry Time</th><th>Exit Time</th></tr>
+                </thead>
+                <tbody id="logsBody">
+                    <tr><td colspan="3">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <button onclick="refreshLogs()" style="margin-top:10px;">⟳ Refresh Logs</button>
+    </div>
 </div>
 
-<div class="section">
-  <h2>Entry Logs</h2>
-  <div id="logs">Loading...</div>
-</div>
-
-<button onclick="openGate()">🚪 Open Gate</button>
+<div id="toast" class="toast"></div>
 
 <script>
+    const API = "http://127.0.0.1:5000";
+    const socket = io(API);
+    let currentUser = null;
 
-const API = "http://127.0.0.1:5000";
-const socket = io(API);
-
-let user = null;
-
-try {
-  user = JSON.parse(localStorage.getItem("user"));
-} catch (e) {
-  user = null;
-}
-
-if (!user || user.role !== "security") {
-  window.location = "index.html";
-}
-
-/* ---------------- SOCKET EVENTS ---------------- */
-socket.on("connect", () => {
-  console.log("Security dashboard connected");
-  loadAll();
-});
-
-socket.on("slots_updated", () => fetchSlots());
-socket.on("logs_updated", () => fetchLogs());
-
-socket.on("security_alert", (data) => {
-  alert("🚨 " + data.message);
-});
-
-/* ---------------- INITIAL LOAD ---------------- */
-loadAll();
-
-function loadAll(){
-  fetchSlots();
-  fetchLogs();
-}
-
-/* ---------------- LOGOUT ---------------- */
-function logout(){
-  localStorage.clear();
-  window.location = "index.html";
-}
-
-/* ---------------- SLOTS ---------------- */
-async function fetchSlots(){
-  try {
-    let res = await fetch(API + "/slots");
-    let data = await res.json();
-
-    if (!data.length) {
-      document.getElementById("slots").innerHTML = "No slots found";
-      return;
+    // Helper: toast notification
+    function toast(msg, isError = false) {
+        const t = document.getElementById("toast");
+        t.innerText = msg;
+        t.style.background = isError ? "#e74c3c" : "#2c3e50";
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 3000);
     }
 
-    document.getElementById("slots").innerHTML = data.map(slot => `
-      <div class="card">
-        <b>Slot ${slot.slot_number}</b><br>
-        Status: ${slot.status}
-      </div>
-    `).join("");
-
-  } catch (err) {
-    document.getElementById("slots").innerHTML = "Error loading slots";
-  }
-}
-
-/* ---------------- LOGS ---------------- */
-async function fetchLogs(){
-  try {
-    let res = await fetch(API + "/logs");
-    let data = await res.json();
-
-    if (!data.length) {
-      document.getElementById("logs").innerHTML = "No logs yet";
-      return;
+    // Check authentication and role
+    async function checkAuth() {
+        const userStr = localStorage.getItem("user");
+        if (!userStr) {
+            window.location.href = "auth.html";
+            return false;
+        }
+        const user = JSON.parse(userStr);
+        if (user.role !== "security") {
+            toast("Access denied: Security role required", true);
+            setTimeout(() => window.location.href = "auth.html", 1500);
+            return false;
+        }
+        currentUser = user;
+        document.getElementById("userName").innerText = user.name || "Security Officer";
+        return true;
     }
 
-    document.getElementById("logs").innerHTML = data.map(log => `
-      <div class="card">
-        <b>${log.vehicle_plate || "N/A"}</b><br>
-        Entry: ${log.entry_time || ""}<br>
-        Exit: ${log.exit_time || "IN"}
-      </div>
-    `).join("");
+    // API wrapper
+    async function apiCall(endpoint, method = "GET", body = null) {
+        const opts = { method, headers: { "Content-Type": "application/json" } };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(API + endpoint, opts);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "API error");
+        return data;
+    }
 
-  } catch (err) {
-    document.getElementById("logs").innerHTML = "Error loading logs";
-  }
-}
+    // Load slots (your /slots)
+    async function loadSlots() {
+        try {
+            const slots = await apiCall("/slots");
+            const container = document.getElementById("slotsContainer");
+            container.innerHTML = slots.map(s => `
+                <div class="slot slot-${s.status.toLowerCase()}">
+                    <b>${s.slot_number}</b><br>
+                    ${s.status}
+                </div>
+            `).join("");
+            // Check if all slots are occupied (full lot)
+            const occupiedCount = slots.filter(s => s.status === "OCCUPIED" || s.status === "RESERVED").length;
+            const total = slots.length;
+            const banner = document.getElementById("alertBanner");
+            if (occupiedCount === total && total > 0) {
+                banner.classList.add("show");
+            } else {
+                banner.classList.remove("show");
+            }
+        } catch(e) {
+            toast("Failed to load slots: " + e.message, true);
+        }
+    }
 
-/* ---------------- GATE ---------------- */
-async function openGate(){
-  let res = await fetch(API + "/open_gate", {
-    method: "POST"
-  });
+    // Load entry/exit logs (your /logs)
+    async function loadLogs() {
+        try {
+            const logs = await apiCall("/logs");
+            const tbody = document.getElementById("logsBody");
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3">No logs found</td></tr>';
+                return;
+            }
+            tbody.innerHTML = logs.map(l => `
+                <tr>
+                    <td>${l.vehicle_plate || "—"}</td>
+                    <td>${l.entry_time ? new Date(l.entry_time).toLocaleString() : "—"}</td>
+                    <td>${l.exit_time ? new Date(l.exit_time).toLocaleString() : "—"}</td>
+                </tr>
+            `).join("");
+        } catch(e) {
+            toast("Failed to load logs", true);
+        }
+    }
 
-  let data = await res.json();
-  alert(data.message || "Gate triggered");
-}
+    async function refreshLogs() {
+        await loadLogs();
+        toast("Logs refreshed");
+    }
 
+    // Entry
+    async function logEntry() {
+        const plate = document.getElementById("entryPlate").value.trim();
+        if (!plate) {
+            toast("Please enter license plate", true);
+            return;
+        }
+        try {
+            await apiCall("/entry", "POST", { plate });
+            toast(`Entry logged for ${plate}`);
+            document.getElementById("entryPlate").value = "";
+            loadLogs();  // refresh logs
+            // Optionally, open gate automatically? Not required but could be nice
+        } catch(e) {
+            toast("Entry failed: " + e.message, true);
+        }
+    }
+
+    // Exit
+    async function logExit() {
+        const plate = document.getElementById("exitPlate").value.trim();
+        if (!plate) {
+            toast("Please enter license plate", true);
+            return;
+        }
+        try {
+            await apiCall("/exit", "POST", { plate });
+            toast(`Exit logged for ${plate}`);
+            document.getElementById("exitPlate").value = "";
+            loadLogs();
+        } catch(e) {
+            toast("Exit failed: " + e.message, true);
+        }
+    }
+
+    // Open gate
+    async function openGate() {
+        try {
+            await apiCall("/open_gate", "POST", {});
+            toast("Gate opened (simulated)");
+        } catch(e) {
+            toast("Gate control failed", true);
+        }
+    }
+
+    // Logout
+    function logout() {
+        localStorage.clear();
+        window.location.href = "index.html";
+    }
+
+    // Socket events
+    socket.on("slots_updated", () => {
+        loadSlots();
+    });
+    socket.on("logs_updated", () => {
+        loadLogs();
+    });
+    socket.on("system_warning", (data) => {
+        toast("⚠️ " + data.message, true);
+        if (data.message.includes("FULL")) {
+            document.getElementById("alertBanner").classList.add("show");
+        }
+    });
+    socket.on("security_alert", (data) => {
+        toast("🚨 SECURITY ALERT: " + data.message, true);
+    });
+
+    // Initial load
+    checkAuth().then(() => {
+        loadSlots();
+        loadLogs();
+    });
 </script>
-
 </body>
 </html>
