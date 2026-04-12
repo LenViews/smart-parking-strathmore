@@ -82,6 +82,10 @@ socket.on("connect", () => {
 socket.on("slots_updated", () => fetchSlots());
 socket.on("logs_updated", () => fetchLogs());
 
+socket.on("security_alert", (data) => {
+  alert("🚨 " + data.message);
+});
+
 /* ---------------- INITIAL LOAD ---------------- */
 loadAll();
 

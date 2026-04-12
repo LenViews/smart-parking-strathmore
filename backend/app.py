@@ -4,6 +4,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 import MySQLdb
 from flask import g
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
@@ -33,16 +34,22 @@ def authorize(role, allowed):
     return role in allowed
 
 def cleanup_expired(cursor):
+    # Mark expired
     cursor.execute("""
-        DELETE FROM reservations 
-        WHERE created_at < NOW() - INTERVAL 10 MINUTE
+        UPDATE reservations
+        SET status='EXPIRED', active=FALSE
+        WHERE expiry_time < NOW() AND active=TRUE
     """)
 
+    # Free slots
     cursor.execute("""
-        UPDATE parking_slots 
+        UPDATE parking_slots
         SET status='FREE'
-        WHERE id NOT IN (SELECT slot_id FROM reservations)
+        WHERE id NOT IN (
+            SELECT slot_id FROM reservations WHERE active=TRUE
+        )
     """)
+
 
 # ------------------ ROUTES ------------------
 # ------------------ SLOTS ------------------
@@ -252,13 +259,25 @@ def reserve():
             (slot_id,)
         )
 
+        cursor.execute("SELECT COUNT(*) FROM parking_slots WHERE status='FREE'")
+        free_slots = cursor.fetchone()[0]
+        if free_slots == 0:
+            socketio.emit('system_warning', {
+                "message": "Parking is FULL"
+            })
+
+        expiry = datetime.now() + timedelta(minutes=10)
+
         cursor.execute(
-            "INSERT INTO reservations (slot_id, user_id) VALUES (%s,%s)",
-            (slot_id, user_id)
+            "INSERT INTO reservations (slot_id, user_id, expiry_time, status, active) VALUES (%s,%s,%s, 'ACTIVE', TRUE)",
+            (slot_id, user_id, expiry)
         )
 
         db.commit()
-        socketio.emit('slots_updated')
+        socketio.emit('reservation_created', {
+            "slot_id": slot_id,
+            "user_id": user_id
+        })
         return jsonify({"message": "Reserved successfully"})
 
     except Exception as e:
@@ -267,7 +286,6 @@ def reserve():
 
     finally:
         cursor.close()
-
 
 # ------------------ RELEASE ------------------
 
@@ -297,6 +315,9 @@ def release():
 
         db.commit()
         socketio.emit('slots_updated')
+        socketio.emit('security_alert', {
+            "message": "Unauthorized access attempt"
+        })
         return jsonify({"message": "Released"})
 
     except Exception as e:
@@ -332,9 +353,9 @@ def cancel_reservation():
         if not reservation:
             return jsonify({"message": "Reservation not found"}), 404
 
-        # Delete reservation
+        # Cancel reservation - Soft cancel instead of deletion
         cursor.execute(
-            "DELETE FROM reservations WHERE slot_id=%s AND user_id=%s",
+            "UPDATE reservations SET status='CANCELLED', active=FALSE WHERE slot_id=%s AND user_id=%s AND active=TRUE",
             (slot_id, user_id)
         )
 
@@ -346,6 +367,10 @@ def cancel_reservation():
 
         db.commit()
 
+        socketio.emit('reservation_cancelled', {
+            "slot_id": slot_id,
+            "user_id": user_id
+        })
         socketio.emit('slots_updated')
         socketio.emit('logs_updated')
 

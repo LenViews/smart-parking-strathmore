@@ -70,6 +70,14 @@ socket.on("logs_updated", () => {
   fetchMyReservations();
 });
 
+socket.on("reservation_created", () => {
+    fetchMyReservations();
+});
+
+socket.on("reservation_cancelled", () => {
+  fetchMyReservations();
+});
+
 /* ---------------- LOGOUT ---------------- */
 function logout(){
   localStorage.clear();

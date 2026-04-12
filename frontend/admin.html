@@ -86,6 +86,10 @@ socket.on("slots_updated", () => fetchSlots());
 socket.on("logs_updated", () => fetchLogs());
 socket.on("users_updated", () => fetchUsers());
 
+socket.on("system_warning", (data) => {
+  alert("⚠️ " + data.message);
+});
+
 /* ---------------- INIT ---------------- */
 loadAll();
 
