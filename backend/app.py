@@ -11,6 +11,35 @@ CORS(app)
 
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
+import threading
+import time
+
+def check_expiring_reservations():
+    while True:
+        time.sleep(30)  # check every 30 seconds
+        with app.app_context():
+            db = get_db()
+            cursor = db.cursor(MySQLdb.cursors.DictCursor)
+            cursor.execute("""
+                SELECT r.id, r.user_id, r.slot_id, r.expiry_time, u.name, ps.slot_number
+                FROM reservations r
+                JOIN users u ON r.user_id = u.id
+                JOIN parking_slots ps ON r.slot_id = ps.id
+                WHERE r.active = TRUE 
+                  AND r.expiry_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 1 MINUTE)
+            """)
+            expiring = cursor.fetchall()
+            for res in expiring:
+                socketio.emit('reservation_expiring', {
+                    "message": f"Your reservation for slot {res['slot_number']} expires in less than 1 minute!",
+                    "reservation_id": res['id']
+                }, room=str(res['user_id']))
+            cursor.close()
+
+# Start background thread
+threading.Thread(target=check_expiring_reservations, daemon=True).start()
+
+
 def get_db():
     if 'db' not in g:
         g.db = MySQLdb.connect(
@@ -499,27 +528,70 @@ def cancel_reservation():
 def analytics():
     db = get_db()
     cursor = db.cursor(MySQLdb.cursors.DictCursor)
-
-    # occupancy
+    
+    # Basic occupancy
     cursor.execute("SELECT COUNT(*) as total FROM parking_slots")
     total = cursor.fetchone()['total']
-
     cursor.execute("SELECT COUNT(*) as occupied FROM parking_slots WHERE status='OCCUPIED'")
     occupied = cursor.fetchone()['occupied']
-
-    # reservations today
+    
+    # Reservations today
+    cursor.execute("SELECT COUNT(*) as today FROM reservations WHERE DATE(created_at) = CURDATE()")
+    today = cursor.fetchone()['today']
+    
+    # Average reservation duration (minutes) – only for completed ones
     cursor.execute("""
-        SELECT COUNT(*) as today_reservations
-        FROM reservations
-        WHERE DATE(created_at) = CURDATE()
+        SELECT AVG(TIMESTAMPDIFF(MINUTE, created_at, expiry_time)) as avg_minutes
+        FROM reservations WHERE status='EXPIRED'
     """)
-    today = cursor.fetchone()['today_reservations']
-
+    avg_duration = cursor.fetchone()['avg_minutes'] or 0
+    
+    # Most popular slot (based on reservations)
+    cursor.execute("""
+        SELECT ps.slot_number, COUNT(*) as res_count
+        FROM reservations r
+        JOIN parking_slots ps ON r.slot_id = ps.id
+        GROUP BY r.slot_id
+        ORDER BY res_count DESC LIMIT 1
+    """)
+    popular_slot = cursor.fetchone()
+    
     return jsonify({
         "occupancy_rate": round((occupied/total)*100, 2) if total else 0,
         "occupied": occupied,
         "total": total,
-        "today_reservations": today
+        "today_reservations": today,
+        "avg_reservation_minutes": round(avg_duration, 1),
+        "most_popular_slot": popular_slot['slot_number'] if popular_slot else "N/A"
+    })
+
+# ----------- SENSOR ANALYTICS ------------------
+@app.route('/sensor_analytics')
+def sensor_analytics():
+    db = get_db()
+    cursor = db.cursor(MySQLdb.cursors.DictCursor)
+    
+    # Most frequently occupied slots (by sensor logs)
+    cursor.execute("""
+        SELECT slot_id, COUNT(*) as changes
+        FROM sensor_logs
+        GROUP BY slot_id
+        ORDER BY changes DESC LIMIT 5
+    """)
+    active_slots = cursor.fetchall()
+    
+    # Peak hours (hour of day with most status changes)
+    cursor.execute("""
+        SELECT HOUR(created_at) as hour, COUNT(*) as events
+        FROM sensor_logs
+        GROUP BY hour
+        ORDER BY events DESC LIMIT 3
+    """)
+    peak_hours = cursor.fetchall()
+    
+    return jsonify({
+        "most_active_slots": active_slots,
+        "peak_activity_hours": peak_hours
     })
 
 
@@ -560,6 +632,19 @@ def logs():
 
     cursor.close()
     return jsonify(data)
+
+# -------------- AUDIT LOGS -----------------
+@app.route('/audit_logs')
+def get_audit_logs():
+    db = get_db()
+    cursor = db.cursor(MySQLdb.cursors.DictCursor)
+    cursor.execute("""
+        SELECT al.*, u.name as admin_name 
+        FROM audit_logs al
+        LEFT JOIN users u ON al.user_id = u.id
+        ORDER BY al.created_at DESC LIMIT 200
+    """)
+    return jsonify(cursor.fetchall())
 
 
 # ------------------ USERS ------------------
