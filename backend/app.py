@@ -365,9 +365,9 @@ def release():
     db = get_db()
     cursor = db.cursor()
 
+    data = request.json
     user_id = data.get('user_id')
 
-    data = request.json
     role = data.get('role')
 
     if not authorize(role, ['admin']):

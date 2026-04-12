@@ -5,100 +5,254 @@
   <title>Smart Parking - Auth</title>
 
   <style>
+    :root {
+      --primary-color: #c41e3a;
+      --primary-dark: #9e182f;
+      --secondary-color: #1a1a1a;
+      --text-color: #333;
+      --text-light: #777;
+      --white: #ffffff;
+      --light-bg: #f9f9f9;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Segoe UI", sans-serif;
+    }
+
     body {
-      font-family: Arial;
-      text-align: center;
-      background: #f4f6f8;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--light-bg);
     }
 
-    .box {
-      background: white;
-      padding: 20px;
-      margin: 40px auto;
-      width: 320px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    .container {
+      width: 900px;
+      max-width: 95%;
+      height: 540px;
+      display: flex;
+      background: var(--white);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
     }
 
-    input, select {
-      width: 90%;
-      padding: 10px;
-      margin: 6px;
+    /* LEFT PANEL */
+    .left {
+      flex: 1;
+      background: var(--secondary-color);
+      color: white;
+      padding: 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
-    button {
-      padding: 10px;
-      margin-top: 10px;
-      cursor: pointer;
-      width: 95%;
+    .left h1 {
+      font-size: 32px;
+      margin-bottom: 15px;
+    }
+
+    .left span {
+      color: var(--primary-color);
+    }
+
+    .left p {
+      color: #ccc;
+      line-height: 1.5;
+    }
+
+    /* RIGHT PANEL */
+    .right {
+      flex: 1;
+      padding: 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .title {
-      margin-top: 20px;
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: var(--secondary-color);
     }
 
-    .error {
-      color: red;
-      font-size: 13px;
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-light);
+      margin-bottom: 20px;
     }
 
-    .success {
-      color: green;
-      font-size: 13px;
+    /* TOGGLE */
+    .toggle {
+      display: flex;
+      border: 1px solid #eee;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 20px;
     }
+
+    .toggle button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: white;
+      cursor: pointer;
+      color: var(--text-light);
+      font-weight: 500;
+    }
+
+    .toggle button.active {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    /* INPUTS */
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border: 1px solid #e5e5e5;
+      outline: none;
+      transition: 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--primary-color);
+    }
+
+    /* BUTTON */
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 6px;
+      border: none;
+      background: var(--primary-color);
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .btn:hover {
+      background: var(--primary-dark);
+    }
+
+    /* MESSAGE */
+    .msg {
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    .error { color: #F44336; }
+    .success { color: #4CAF50; }
+
+    .hidden {
+      display: none;
+    }
+
+    @media(max-width: 768px) {
+      .container {
+        flex-direction: column;
+        height: auto;
+      }
+
+      .left, .right {
+        padding: 30px;
+        text-align: center;
+      }
+    }
+
   </style>
 </head>
 
 <body>
 
-<h1 class="title">🚗 Smart Parking System</h1>
+<div class="container">
 
-<div class="box">
-  <h2>Login</h2>
+  <!-- LEFT -->
+  <div class="left">
+    <h1>Smart <span>Parking</span></h1>
+    <p>
+      Access your Strathmore University parking system.
+      Manage spaces, reduce congestion, and improve efficiency.
+    </p>
+  </div>
 
-  <input id="loginEmail" placeholder="Email">
-  <input id="loginPassword" type="password" placeholder="Password">
+  <!-- RIGHT -->
+  <div class="right">
 
-  <button onclick="login()">Login</button>
+    <div class="title">Welcome</div>
+    <div class="subtitle">Sign in or create an account</div>
 
-  <p id="loginMsg"></p>
-</div>
+    <!-- TOGGLE -->
+    <div class="toggle">
+      <button id="loginTab" class="active" onclick="showLogin()">Login</button>
+      <button id="registerTab" onclick="showRegister()">Register</button>
+    </div>
 
-<div class="box">
-  <h2>Register</h2>
+    <!-- LOGIN -->
+    <div id="loginBox">
+      <input id="loginEmail" placeholder="Email">
+      <input id="loginPassword" type="password" placeholder="Password">
 
-  <input id="regName" placeholder="Full Name">
-  <input id="regEmail" placeholder="Email">
-  <input id="regPassword" type="password" placeholder="Password">
+      <button class="btn" onclick="login()">Login</button>
+      <div id="loginMsg" class="msg"></div>
+    </div>
 
-  <select id="regRole">
-    <option value="student">Student</option>
-    <option value="staff">Staff</option>
-    <option value="admin">Admin</option>
-  </select>
+    <!-- REGISTER -->
+    <div id="registerBox" class="hidden">
+      <input id="regName" placeholder="Full Name">
+      <input id="regEmail" placeholder="Email">
+      <input id="regPassword" type="password" placeholder="Password">
 
-  <button onclick="register()">Register</button>
+      <select id="regRole">
+        <option value="student">Student</option>
+        <option value="staff">Staff</option>
+      </select>
 
-  <p id="regMsg"></p>
+      <button class="btn" onclick="register()">Create Account</button>
+      <div id="regMsg" class="msg"></div>
+    </div>
+
+  </div>
+
 </div>
 
 <script>
-
 const API = "http://127.0.0.1:5000";
 
-/* ===== LOGIN ===== */
+/* TOGGLE */
+function showLogin() {
+  document.getElementById("loginBox").classList.remove("hidden");
+  document.getElementById("registerBox").classList.add("hidden");
+
+  document.getElementById("loginTab").classList.add("active");
+  document.getElementById("registerTab").classList.remove("active");
+}
+
+function showRegister() {
+  document.getElementById("registerBox").classList.remove("hidden");
+  document.getElementById("loginBox").classList.add("hidden");
+
+  document.getElementById("registerTab").classList.add("active");
+  document.getElementById("loginTab").classList.remove("active");
+}
+
+/* LOGIN */
 async function login() {
   const email = document.getElementById("loginEmail").value.trim();
   const password = document.getElementById("loginPassword").value.trim();
   const msg = document.getElementById("loginMsg");
 
   msg.innerText = "";
-
-  if (!email || !password) {
-    msg.innerText = "Please fill all fields";
-    msg.className = "error";
-    return;
-  }
+  msg.className = "msg";
 
   try {
     const res = await fetch(API + "/login", {
@@ -111,24 +265,24 @@ async function login() {
 
     if (!res.ok) {
       msg.innerText = data.message || "Login failed";
-      msg.className = "error";
+      msg.classList.add("error");
       return;
     }
 
     localStorage.setItem("user", JSON.stringify(data.user));
 
-    msg.innerText = "Login successful!";
-    msg.className = "success";
+    msg.innerText = "Welcome back.";
+    msg.classList.add("success");
 
-    setTimeout(() => redirectUser(data.user.role), 500);
+    setTimeout(() => redirectUser(data.user.role), 600);
 
   } catch (err) {
     msg.innerText = "Server error";
-    msg.className = "error";
+    msg.classList.add("error");
   }
 }
 
-/* ===== REGISTER ===== */
+/* REGISTER */
 async function register() {
   const name = document.getElementById("regName").value.trim();
   const email = document.getElementById("regEmail").value.trim();
@@ -137,12 +291,7 @@ async function register() {
   const msg = document.getElementById("regMsg");
 
   msg.innerText = "";
-
-  if (!name || !email || !password) {
-    msg.innerText = "All fields are required";
-    msg.className = "error";
-    return;
-  }
+  msg.className = "msg";
 
   try {
     const res = await fetch(API + "/register", {
@@ -155,39 +304,28 @@ async function register() {
 
     if (!res.ok) {
       msg.innerText = data.message || "Registration failed";
-      msg.className = "error";
+      msg.classList.add("error");
       return;
     }
 
-    msg.innerText = "Registration successful!";
-    msg.className = "success";
+    msg.innerText = "Account created successfully.";
+    msg.classList.add("success");
 
   } catch (err) {
     msg.innerText = "Server error";
-    msg.className = "error";
+    msg.classList.add("error");
   }
 }
 
-/* ===== REDIRECT ===== */
+/* REDIRECT */
 function redirectUser(role) {
   switch(role) {
-    case "student":
-      window.location.href = "student.html";
-      break;
-    case "staff":
-      window.location.href = "staff.html";
-      break;
-    case "security":
-      window.location.href = "security.html";
-      break;
-    case "admin":
-      window.location.href = "admin.html";
-      break;
-    default:
-      window.location.href = "index.html";
+    case "student": window.location.href = "student.html"; break;
+    case "staff": window.location.href = "staff.html"; break;
+    case "admin": window.location.href = "admin.html"; break;
+    default: window.location.href = "index.html";
   }
 }
-
 </script>
 
 </body>
