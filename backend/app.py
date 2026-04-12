@@ -358,6 +358,22 @@ def reserve():
     finally:
         cursor.close()
 
+# ------------ ADMIN RESERVATIONS -------------------
+@app.route('/admin/reservations')
+def admin_reservations():
+    db = get_db()
+    cursor = db.cursor(MySQLdb.cursors.DictCursor)
+    cursor.execute("""
+        SELECT r.id, r.slot_id, r.user_id, r.expiry_time, r.status, 
+               u.name as user_name, ps.slot_number
+        FROM reservations r
+        JOIN parking_slots ps ON r.slot_id = ps.id
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.active = TRUE
+        ORDER BY r.expiry_time
+    """)
+    return jsonify(cursor.fetchall())
+
 # ------------------ RELEASE ------------------
 
 @app.route('/release', methods=['POST'])
