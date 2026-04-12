@@ -1,170 +1,455 @@
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Student Dashboard</title>
+    <meta charset="UTF-8">
+    <title>Smart Parking – Student Portal</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui;
+        }
 
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+        :root {
+            --primary: #27ae60;
+            --secondary: #2ecc71;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --bg: #f0f8f0;
+            --card: #ffffff;
+        }
 
-<style>
-body {
-  font-family: Arial;
-  background: #f4f6f8;
-  text-align: center;
-}
+        body {
+            background: var(--bg);
+            padding: 20px;
+        }
 
-.card {
-  background: white;
-  padding: 15px;
-  margin: 10px auto;
-  width: 350px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
 
-button {
-  padding: 6px;
-  margin-top: 5px;
-  cursor: pointer;
-}
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card);
+            padding: 15px 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
 
-.free { color: green; }
-.reserved { color: orange; }
-.occupied { color: red; }
-</style>
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .user-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .logout-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* Stats cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        /* Two-column layout */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .card h3 {
+            margin-bottom: 15px;
+            color: var(--primary);
+            border-left: 4px solid var(--secondary);
+            padding-left: 12px;
+        }
+
+        /* Slot grid */
+        .slot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .slot {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+            border-left: 3px solid;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+
+        .slot-free {
+            border-left-color: var(--success);
+            background: #e8f8e8;
+        }
+        .slot-reserved {
+            border-left-color: var(--warning);
+            background: #fef9e7;
+        }
+        .slot-occupied {
+            border-left-color: var(--danger);
+            background: #fdedec;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .slot-free:hover {
+            transform: scale(1.02);
+            background: #d0f0d0;
+        }
+
+        /* Reservations table */
+        .res-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .res-table th, .res-table td {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .res-table th {
+            background: #f2f2f2;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button.danger { background: var(--danger); }
+        button.success { background: var(--success); }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #222;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: 0.2s;
+            z-index: 1000;
+        }
+
+        .toast.show { opacity: 1; }
+
+        @media (max-width: 800px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
-
 <body>
+<div class="container">
+    <div class="header">
+        <div class="logo">🎓 SmartPark Student</div>
+        <div class="user-info">
+            <span id="userName">Student</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
 
-<h1>🎓 Student Dashboard</h1>
-<button onclick="logout()">Logout</button>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-title">Free Slots</div>
+            <div class="stat-value" id="freeCount">-</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">Your Active Reservations</div>
+            <div class="stat-value" id="myResCount">-</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">Total Slots</div>
+            <div class="stat-value" id="totalSlots">-</div>
+        </div>
+    </div>
 
-<h2>Available Slots</h2>
-<div id="slots"></div>
+    <div class="grid-2">
+        <!-- Left: Slot map -->
+        <div class="card">
+            <h3>🅿️ Parking Slots (click FREE slot to reserve)</h3>
+            <div id="slotsContainer" class="slot-grid">Loading slots...</div>
+            <div style="margin-top: 10px; font-size:0.8rem;">
+                <span style="color:var(--success)">⬤ Free (click to reserve)</span>
+                <span style="color:var(--warning)">⬤ Reserved</span>
+                <span style="color:var(--danger)">⬤ Occupied</span>
+            </div>
+            <p style="font-size:0.75rem; color:#666; margin-top:8px;">⏱️ Reservations expire after 10 minutes</p>
+        </div>
 
-<h2>My Reservations</h2>
-<div id="myReservations"></div>
+        <!-- Right: My reservations -->
+        <div class="card">
+            <h3>📅 My Active Reservations</h3>
+            <div id="myReservationsContainer" style="max-height: 400px; overflow-y: auto;">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent logs -->
+    <div class="card">
+        <h3>📋 Recent Entry/Exit Logs</h3>
+        <div style="max-height: 250px; overflow-y: auto;">
+            <table style="width:100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background:#f2f2f2;"><th>Plate</th><th>Entry Time</th><th>Exit Time</th></tr>
+                </thead>
+                <tbody id="logsBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
 
 <script>
-const API = "http://127.0.0.1:5000";
-const socket = io(API);
+    const API = "http://127.0.0.1:5000";
+    const socket = io(API);
+    let currentUser = null;
 
-let user = null;
+    function toast(msg, isError = false) {
+        const t = document.getElementById("toast");
+        t.innerText = msg;
+        t.style.background = isError ? "#e74c3c" : "#27ae60";
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 3000);
+    }
 
-try {
-  user = JSON.parse(localStorage.getItem("user"));
-} catch (e) {
-  user = null;
-}
+    // Auth check (must be student or admin? For student page, require student role)
+    async function checkAuth() {
+        const userStr = localStorage.getItem("user");
+        if (!userStr) {
+            window.location.href = "auth.html";
+            return false;
+        }
+        const user = JSON.parse(userStr);
+        if (user.role !== "student") {
+            toast("Access denied: Student role required", true);
+            setTimeout(() => window.location.href = "auth.html", 1500);
+            return false;
+        }
+        currentUser = user;
+        document.getElementById("userName").innerText = user.name || user.email || "Student";
+        return true;
+    }
 
-if (!user || user.role !== "student") {
-  window.location = "index.html";
-}
+    async function apiCall(endpoint, method = "GET", body = null) {
+        const opts = { method, headers: { "Content-Type": "application/json" } };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(API + endpoint, opts);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "API error");
+        return data;
+    }
 
-/* ---------------- SOCKET ---------------- */
-socket.on("slots_updated", () => {
-  fetchSlots();
-});
+    // Load all slots and update stats
+    async function loadSlots() {
+        try {
+            const slots = await apiCall("/slots");
+            const container = document.getElementById("slotsContainer");
+            container.innerHTML = slots.map(s => `
+                <div class="slot slot-${s.status.toLowerCase()}" 
+                     data-id="${s.id}" 
+                     data-status="${s.status}"
+                     onclick="tryReserve(${s.id}, '${s.status}')">
+                    <b>${s.slot_number}</b><br>
+                    ${s.status}
+                </div>
+            `).join("");
+            const free = slots.filter(s => s.status === "FREE").length;
+            const total = slots.length;
+            document.getElementById("freeCount").innerText = free;
+            document.getElementById("totalSlots").innerText = total;
+        } catch(e) {
+            toast("Failed to load slots", true);
+        }
+    }
 
-socket.on("logs_updated", () => {
-  fetchMyReservations();
-});
+    // Load my reservations using /my_reservations?user_id=...
+    async function loadMyReservations() {
+        try {
+            const reservations = await apiCall(`/my_reservations?user_id=${currentUser.id}`);
+            const active = reservations.filter(r => r.active === 1 || r.active === true);
+            document.getElementById("myResCount").innerText = active.length;
+            const container = document.getElementById("myReservationsContainer");
+            if (active.length === 0) {
+                container.innerHTML = "<p style='color:#666;'>No active reservations. Click a free slot above to reserve.</p>";
+                return;
+            }
+            // Need slot numbers – fetch slots to map
+            const slots = await apiCall("/slots");
+            const slotMap = {};
+            slots.forEach(s => { slotMap[s.id] = s.slot_number; });
+            container.innerHTML = `
+                <table class="res-table">
+                    <thead><tr><th>Slot</th><th>Expires</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>
+                        ${active.map(r => `
+                            <tr>
+                                <td>${slotMap[r.slot_id] || r.slot_id}</td>
+                                <td>${new Date(r.expiry_time).toLocaleString()}</td>
+                                <td>${r.status}</td>
+                                <td><button class="danger" onclick="cancelReservation(${r.slot_id})">Cancel</button></td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            `;
+        } catch(e) {
+            document.getElementById("myReservationsContainer").innerHTML = `<p style="color:red;">Error loading reservations</p>`;
+        }
+    }
 
-socket.on("reservation_created", () => {
-    fetchMyReservations();
-});
+    // Try to reserve a slot
+    async function tryReserve(slotId, status) {
+        if (status !== "FREE") {
+            toast("This slot is not available for reservation", true);
+            return;
+        }
+        try {
+            await apiCall("/reserve", "POST", {
+                slot_id: slotId,
+                user_id: currentUser.id,
+                role: currentUser.role
+            });
+            toast(`Slot reserved! Expires in 10 minutes.`);
+            loadSlots();
+            loadMyReservations();
+        } catch(e) {
+            toast(e.message, true);
+        }
+    }
 
-socket.on("reservation_cancelled", () => {
-  fetchMyReservations();
-});
+    // Cancel my reservation for a given slot_id
+    async function cancelReservation(slotId) {
+        if (!confirm("Cancel this reservation?")) return;
+        try {
+            await apiCall("/cancel_reservation", "POST", {
+                slot_id: slotId,
+                user_id: currentUser.id
+            });
+            toast("Reservation cancelled");
+            loadSlots();
+            loadMyReservations();
+        } catch(e) {
+            toast(e.message, true);
+        }
+    }
 
-/* ---------------- LOGOUT ---------------- */
-function logout(){
-  localStorage.clear();
-  window.location = "index.html";
-}
+    // Load entry logs (read-only)
+    async function loadLogs() {
+        try {
+            const logs = await apiCall("/logs");
+            const tbody = document.getElementById("logsBody");
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3">No logs</td></tr>';
+                return;
+            }
+            tbody.innerHTML = logs.map(l => `
+                <tr>
+                    <td>${l.vehicle_plate || "—"}</td>
+                    <td>${l.entry_time ? new Date(l.entry_time).toLocaleString() : "—"}</td>
+                    <td>${l.exit_time ? new Date(l.exit_time).toLocaleString() : "—"}</td>
+                </tr>
+            `).join("");
+        } catch(e) {
+            console.error("Logs error", e);
+        }
+    }
 
-/* ---------------- SLOTS ---------------- */
-async function fetchSlots(){
-  let res = await fetch(API + "/slots");
-  let data = await res.json();
+    function logout() {
+        localStorage.clear();
+        window.location.href = "auth.html";
+    }
 
-  let html = "";
+    // Socket events
+    socket.on("slots_updated", () => {
+        loadSlots();
+    });
+    socket.on("reservation_created", (data) => {
+        if (data.user_id === currentUser.id) {
+            toast("Your reservation confirmed");
+            loadMyReservations();
+        }
+        loadSlots();
+    });
+    socket.on("reservation_cancelled", (data) => {
+        if (data.user_id === currentUser.id) {
+            toast("Your reservation was cancelled");
+            loadMyReservations();
+        }
+        loadSlots();
+    });
+    socket.on("system_warning", (data) => {
+        if (data.message.includes("FULL")) {
+            toast("⚠️ Parking lot is full", true);
+        }
+    });
 
-  data.forEach(slot => {
-    html += `
-      <div class="card">
-        <b>Slot ${slot.slot_number}</b><br>
-        Status: <span class="${slot.status.toLowerCase()}">${slot.status}</span><br>
-
-        ${slot.status === "FREE" ? `
-          <button onclick="reserve(${slot.id})">Reserve</button>
-        ` : ""}
-      </div>
-    `;
-  });
-
-  document.getElementById("slots").innerHTML = html;
-}
-
-/* ---------------- RESERVE ---------------- */
-async function reserve(id){
-  let res = await fetch(API + "/reserve", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      slot_id: id,
-      user_id: user.id,
-      role: user.role
-    })
-  });
-
-  let data = await res.json();
-  alert(data.message);
-}
-
-/* ---------------- MY RESERVATIONS ---------------- */
-async function fetchMyReservations(){
-  let res = await fetch(API + "/my_reservations?user_id=" + user.id);
-  let data = await res.json();
-
-  let html = "";
-
-  data.forEach(r => {
-    html += `
-      <div class="card">
-        Slot ${r.slot_id}<br>
-        <button onclick="cancel(${r.slot_id})">Cancel</button>
-      </div>
-    `;
-  });
-
-  document.getElementById("myReservations").innerHTML = html;
-}
-
-/* ---------------- CANCEL ---------------- */
-
-async function cancel(slotId){
-  let res = await fetch(API + "/cancel_reservation", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      slot_id: slotId,
-      user_id: user.id
-    })
-  });
-
-  let data = await res.json();
-  alert(data.message);
-
-  fetchSlots();
-  fetchMyReservations();
-}
-
-/* ---------------- INIT ---------------- */
-fetchSlots();
-fetchMyReservations();
+    // Initial load
+    checkAuth().then(() => {
+        loadSlots();
+        loadMyReservations();
+        loadLogs();
+    });
 </script>
-
 </body>
 </html>
