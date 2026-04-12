@@ -171,12 +171,24 @@ def entry():
     db = get_db()
     cursor = db.cursor()
 
+    data = request.json
     plate = request.json.get('plate')
+    user_id = data.get('user_id')
+
+    if user_id:
+        cursor.execute("SELECT vehicle_plate FROM users WHERE id=%s", (user_id,))
+        row = cursor.fetchone()
+
+        if row and row[0]:
+            plate = row[0]
+
+    if not plate:
+        return jsonify({"message": "Vehicle Plate Required"}), 400
 
     try:
         cursor.execute(
-            "INSERT INTO entry_logs (vehicle_plate) VALUES (%s)",
-            (plate,)
+            "INSERT INTO entry_logs (vehicle_plate, user_id) VALUES (%s, %s)",
+            (plate, user_id)
         )
         db.commit()
         socketio.emit('logs_updated')
@@ -533,8 +545,17 @@ def my_reservations():
 def logs():
     db = get_db()
     cursor = db.cursor(MySQLdb.cursors.DictCursor)
+    user_id = request.args.get('user_id')
 
-    cursor.execute("SELECT * FROM entry_logs ORDER BY entry_time DESC LIMIT 20")
+    if user_id:
+        cursor.execute(
+                "SELECT * FROM entry_logs WHERE user_id=%s ORDER BY entry_time DESC LIMIT 20",
+                (user_id,)
+        )
+    else:
+        cursor.execute(
+                "SELECT * FROM entry_logs ORDER BY entry_time DESC LIMIT 20"
+        )
     data = cursor.fetchall()
 
     cursor.close()
@@ -606,6 +627,52 @@ def change_role():
     socketio.emit('users_updated')
 
     return jsonify({"message": "Role updated"})
+
+
+# --------------- PROFILE -----------------
+@app.route('/profile', methods=['GET'])
+def get_profile():
+    db = get_db()
+    cursor = db.cursor(MySQLdb.cursors.DictCursor)
+    user_id = request.args.get('user_id')
+    cursor.execute("SELECT id, name, email, role, vehicle_plate FROM users WHERE id=%s", (user_id,))
+    user = cursor.fetchone()
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+    return jsonify(user)
+
+@app.route('/profile', methods=['PUT'])
+def update_profile():
+    db = get_db()
+    cursor = db.cursor()
+    data = request.json
+    user_id = data.get('user_id')
+    name = data.get('name')
+    email = data.get('email')
+    vehicle_plate = data.get('vehicle_plate')
+    password = data.get('password')  # optional, if provided hash it
+    
+    try:
+        if password:
+            hashed = generate_password_hash(password)
+            cursor.execute(
+                "UPDATE users SET name=%s, email=%s, vehicle_plate=%s, password=%s WHERE id=%s",
+                (name, email, vehicle_plate, hashed, user_id)
+            )
+        else:
+            cursor.execute(
+                "UPDATE users SET name=%s, email=%s, vehicle_plate=%s WHERE id=%s",
+                (name, email, vehicle_plate, user_id)
+            )
+        db.commit()
+        socketio.emit('users_updated')
+        return jsonify({"message": "Profile updated"})
+    except MySQLdb.IntegrityError:
+        db.rollback()
+        return jsonify({"message": "Email already exists"}), 400
+    except Exception as e:
+        db.rollback()
+        return jsonify({"message": str(e)}), 500
 
 
 # ------------------ GATE ------------------
