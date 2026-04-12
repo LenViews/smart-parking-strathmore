@@ -7,97 +7,323 @@
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
   <style>
-    body {
-      font-family: Arial;
-      text-align: center;
-      background: #f4f6f8;
+    :root {
+      --primary-color: #c41e3a;
+      --primary-dark: #9e182f;
+      --secondary-color: #1a1a1a;
+      --text-color: #333;
+      --text-light: #777;
+      --white: #ffffff;
+      --light-bg: #f9f9f9;
     }
 
-    h1 { margin-top: 20px; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Segoe UI", sans-serif;
+    }
 
-    .top-bar { margin: 20px; }
+    body {
+      background: var(--white);
+      color: var(--text-color);
+    }
 
-    button {
-      margin-top: 5px;
-      padding: 8px;
+    /* NAV */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      padding: 20px 8%;
+      border-bottom: 1px solid #eee;
+      background: white;
+    }
+
+    nav h2 span {
+      color: var(--primary-color);
+    }
+
+    nav button {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 6px;
       cursor: pointer;
+    }
+
+    nav button:hover {
+      background: var(--primary-dark);
+    }
+
+    /* HERO */
+    .hero {
+      padding: 80px 8%;
+      background: var(--light-bg);
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: 42px;
+      color: var(--secondary-color);
+    }
+
+    .hero span {
+      color: var(--primary-color);
+    }
+
+    .hero p {
+      max-width: 700px;
+      margin: 20px auto;
+      color: var(--text-light);
+    }
+
+    /* SECTION */
+    section {
+      padding: 60px 8%;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .section-title h2 {
+      color: var(--secondary-color);
+    }
+
+    .section-title p {
+      color: var(--text-light);
+    }
+
+    /* CARDS */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--white);
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #eee;
+      transition: 0.3s;
+    }
+
+    .card:hover {
+      border-color: var(--primary-color);
+    }
+
+    /* DARK SECTION */
+    .dark {
+      background: var(--secondary-color);
+      color: white;
+    }
+
+    /* ================= PARKING (UNCHANGED) ================= */
+    .parking-wrapper {
+      max-width: 500px;
+      margin: auto;
+      padding: 20px 10px;
+    }
+
+    .lot-container {
+      position: relative;
+      background: #e5e5ea;
+      border-radius: 30px;
+      padding: 60px 20px;
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .gate {
+      position: absolute;
+      top: 55%;
+      transform: translateY(-50%);
+      width: 50px;
+      height: 100px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+      color: white;
+    }
+
+    .entry { left: 0; background: #34c759; }
+    .exit { right: 0; background: #ff3b30; }
+
+    .road {
+      height: 20px;
+      background: #c7c7cc;
+      margin: 10px 40px;
+      border-radius: 12px;
+      position: relative;
+      box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    .road::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 5%;
+      right: 5%;
+      border-top: 3px dashed rgba(255,255,255,0.6);
+      transform: translateY(-50%);
     }
 
     .parking-lot {
       display: flex;
       flex-direction: column;
+      gap: 50px;
       align-items: center;
-      gap: 35px;
-      padding: 30px;
     }
 
     .row {
       display: flex;
-      gap: 35px;
+      gap: 20px;
       justify-content: center;
     }
 
     .slot {
-      width: 90px;
-      height: 150px;
+      width: 80px;
+      height: 130px;
       border-radius: 10px;
       color: white;
       display: flex;
-      justify-content: center;
       align-items: center;
-      transform: rotate(45deg);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
     }
 
-    .slot-content {
-      transform: rotate(-45deg);
-      text-align: center;
-      font-size: 12px;
-    }
+    .row.top .slot { transform: rotate(28deg); }
+    .row.bottom .slot { transform: rotate(-28deg); }
 
     .FREE { background: #2ecc71; }
     .RESERVED { background: #f39c12; }
     .OCCUPIED { background: #e74c3c; }
 
-    .lane {
-      width: 45%;
-      height: 80px;
-      background: #bdc3c7;
-      border-radius: 10px;
-      margin: 10px auto;
-      box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+    .summary {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 600;
+      margin-top: 20px;
     }
 
-    .summary {
-      font-weight: bold;
-      margin: 10px;
+    /* INPUT SECTION */
+    .action-box {
+      text-align: center;
+      margin-top: 30px;
     }
+
+    input {
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button.action {
+      padding: 10px 18px;
+      border-radius: 6px;
+      border: none;
+      background: var(--primary-color);
+      color: white;
+      cursor: pointer;
+      margin: 5px;
+    }
+
+    button.action:hover {
+      background: var(--primary-dark);
+    }
+
+    footer {
+      text-align: center;
+      padding: 30px;
+      background: var(--secondary-color);
+      color: #ccc;
+    }
+
+    footer span {
+      color: var(--primary-color);
+    }
+
   </style>
 </head>
 
 <body>
 
-<h1>🚗 Smart Parking System</h1>
+<!-- NAV -->
+<nav>
+  <h2>Smart<span>Park</span></h2>
+  <a href="auth.html"><button>Login</button></a>
+</nav>
 
-<p>Welcome! Please login to reserve parking slots.</p>
-
-<div class="top-bar">
-  <a href="auth.html">
-    <button>Login / Register</button>
-  </a>
+<!-- HERO -->
+<div class="hero">
+  <h1>IoT-Based <span>Smart Parking</span></h1>
+  <p>
+    A real-time parking management system designed for Strathmore University
+    to reduce congestion, improve efficiency, and enhance security.
+  </p>
 </div>
 
-<div id="summary" class="summary"></div>
+<!-- FEATURES -->
+<section>
+  <div class="section-title">
+      <h2>System Features</h2>
+    <p>Built for efficiency and automation</p>
+  </div>
 
-<div class="parking-lot" id="slots"></div>
+  <div class="grid">
+    <div class="card">Real-time parking slot monitoring</div>
+    <div class="card">Automated entry and exit control</div>
+    <div class="card">Smart parking allocation</div>
+    <div class="card">Role-based access (students, staff, admin)</div>
+  </div>
+</section>
 
-<h2>Gate Simulation</h2>
+<!-- PARKING (UNCHANGED CORE) -->
+<div class="parking-wrapper">
 
-<input id="plate" placeholder="Plate Number">
-<br><br>
+  <div class="lot-container">
 
-<button onclick="entry()">Entry</button>
-<button onclick="exitVehicle()">Exit</button>
+    <div class="gate entry">ENTRY</div>
+    <div class="gate exit">EXIT</div>
+
+    <div id="summary" class="summary"></div>
+
+    <div class="parking-lot" id="slots"></div>
+
+  </div>
+
+</div>
+<div style="text-align:center; margin-bottom:20px;">
+    <h3 style="color:#1a1a1a;">How the System Works</h3>
+    <p style="color:#777; max-width:700px; margin:10px auto; font-size:14px; line-height:1.7;">
+The IoT Smart Parking System is designed as an integrated real-time monitoring solution that combines hardware sensing, embedded processing, and web-based visualization to efficiently manage parking spaces within Strathmore University. The system utilizes infrared sensors installed in each parking slot to continuously detect the presence or absence of a vehicle. Once a vehicle is detected or leaves a slot, the sensor sends a signal to an Arduino UNO microcontroller, which processes the input data and determines the current occupancy status of each parking space. This processed information is then transmitted to a backend server built using a PHP-based MVC architecture running on XAMPP, where it is stored, updated, and managed in a MySQL database.
+
+In this architecture, the parking lot functions as a digital twin of the physical parking infrastructure, meaning that every physical parking space is mirrored by a corresponding digital representation in the system. This allows for accurate visualization of space utilization, improved traffic flow management, and reduced time spent searching for parking. By digitizing and automating the monitoring process, the system significantly minimizes human intervention, reduces congestion within the university premises, enhances security by tracking vehicle presence, and optimizes the overall efficiency of parking resource allocation.
+</p>
+  </div>
+
+<!-- HOW IT WORKS -->
+<section class="dark">
+  <div class="section-title">
+    <h2>How It Works</h2>
+  </div>
+
+  <div class="grid">
+    <div class="card-f">Infrared sensors detect occupancy</div>
+    <div class="card-f">Arduino processes slot data</div>
+    <div class="card-f">System updates in real-time</div>
+    <div class="card-f">Users view availability instantly</div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  © 2026 SmartPark | Developed by <span>Daruka Aluong</span>
+</footer>
 
 <script>
 
@@ -110,47 +336,39 @@ const API = "http://127.0.0.1:5000";
 
 socket.on("slots_updated", fetchSlots);
 
-/* ===== ENTRY ===== */
 async function entry() {
   const res = await fetch(API + "/entry", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ plate: plateInput.value })
   });
-
-  const data = await res.json();
-  alert(data.message);
+  alert((await res.json()).message);
 }
 
-/* ===== EXIT ===== */
 async function exitVehicle() {
   const res = await fetch(API + "/exit", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ plate: plateInput.value })
   });
-
-  const data = await res.json();
-  alert(data.message);
+  alert((await res.json()).message);
 }
 
-/* ===== FETCH SLOTS ===== */
 async function fetchSlots() {
   const res = await fetch(API + "/slots");
   const data = await res.json();
 
   let occupied = 0;
-
   const mid = Math.ceil(data.length / 2);
+
   const row1 = data.slice(0, mid);
   const row2 = data.slice(mid);
 
-  function renderRow(arr) {
+  function renderRow(arr, className) {
     return `
-      <div class="row">
+      <div class="row ${className}">
         ${arr.map(slot => {
           if (slot.status === "OCCUPIED") occupied++;
-
           return `
             <div class="slot ${slot.status}">
               <div class="slot-content">
@@ -165,12 +383,12 @@ async function fetchSlots() {
   }
 
   slotsEl.innerHTML = `
-    ${renderRow(row1)}
-    <div class="lane"></div>
-    ${renderRow(row2)}
+    ${renderRow(row1, "top")}
+    <div class="road"></div>
+    ${renderRow(row2, "bottom")}
   `;
 
-  summaryEl.innerText = `${occupied}/${data.length} occupied`;
+  summaryEl.innerText = `${occupied}/${data.length} slots occupied`;
 }
 
 fetchSlots();
