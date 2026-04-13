@@ -260,7 +260,7 @@
         <div class="card">
             <div style="max-height: 400px; overflow-y: auto;">
                 <table>
-                    <thead><tr><th>Time</th><th>Admin</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Time</th><th>User</th><th>Action</th></tr></thead>
                     <tbody id="auditLogsBody"></tbody>
                 </table>
             </div>
@@ -422,17 +422,6 @@
         loadUsers();
     }
 
-    // Load Reservations (using your /my_reservations?user_id=... but for all? You may need an admin endpoint)
-    // Since your backend has /my_reservations only for a single user, we'll fetch all active reservations via a loop or you can add an admin endpoint.
-    // For now, I'll simulate by showing all reservations from your system if you add /admin/reservations.
-    // But to keep compatibility, I'll use /my_reservations for each user? That's inefficient. Let me instead use your existing /reservations? No.
-    // I'll implement a safe fallback: show all slots with active reservations from your /slots and a separate call.
-    // Actually, your backend has no "all reservations" endpoint. I'll add a note, but for admin, we can call /my_reservations for the admin itself? Not useful.
-    // To fully work without backend changes, I'll show "Admin endpoint missing – please add /admin/reservations" or I'll create a workaround by fetching users and their reservations.
-    // But you asked not to redesign backend. So I'll provide a placeholder that works if you later add that route.
-    // For now, I'll assume you have or will add a simple route:
-    // @app.route('/admin/reservations') that returns all active reservations.
-    // I'll code it to work if it exists, else show a helpful message.
     async function loadReservations() {
         try {
             const reservations = await apiCall("/admin/reservations");
