@@ -194,6 +194,8 @@
     <div class="nav-item" data-page="users">👥 Users</div>
     <div class="nav-item" data-page="reservations">📅 Reservations</div>
     <div class="nav-item" data-page="logs">📜 Entry Logs</div>
+    <div class="nav-item" data-page="audit">📜 Audit Logs</div>
+    <div class="nav-item" data-page="sensors">📡 Sensor Analytics</div>
     <div class="nav-item logout" data-page="logout">🚪 Logout</div>
 </div>
 
@@ -250,6 +252,28 @@
             <div id="logsContainer"></div>
         </div>
         <button id="exportLogsBtn">📥 Export CSV</button>
+    </div>
+
+    <!-- Audit Logs -->
+    <div id="auditPage" style="display:none;">
+        <h2>Audit Logs</h2>
+        <div class="card">
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table>
+                    <thead><tr><th>Time</th><th>Admin</th><th>Action</th></tr></thead>
+                    <tbody id="auditLogsBody"></tbody>
+                </table>
+            </div>
+            <button onclick="exportAuditLogs()">📥 Export CSV</button>
+        </div>
+    </div>
+
+    <!-- Sensor Analytics -->
+    <div id="sensorsPage" style="display:none;">
+        <h2>Sensor Analytics</h2>
+        <div class="card">
+            <div id="sensorStats"></div>
+        </div>
     </div>
 </div>
 
@@ -459,6 +483,49 @@
         `;
     }
 
+    async function loadAuditLogs() {
+        const logs = await apiCall("/audit_logs");
+        document.getElementById("auditLogsBody").innerHTML = logs.map(l => `
+            <tr>
+                <td>${new Date(l.created_at).toLocaleString()}</td>
+                <td>${l.admin_name || l.user_id}</td>
+                <td>${l.action}</td>
+            </tr>
+        `).join("");
+    }
+
+    function exportAuditLogs() {
+        const rows = document.querySelectorAll("#auditLogsBody tr");
+        let csv = "Time,Admin,Action\n";
+        rows.forEach(row => {
+            const cols = row.querySelectorAll("td");
+            csv += `"${cols[0].innerText}","${cols[1].innerText}","${cols[2].innerText}"\n`;
+        });
+        const blob = new Blob([csv], { type: "text/csv" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `audit_logs_${new Date().toISOString()}.csv`;
+        a.click();
+        toast("Audit logs exported");
+    }
+
+    async function loadSensorAnalytics() {
+        const data = await apiCall("/sensor_analytics");
+
+        let html = `<h4>Most Active Slots</h4><ul>`;
+        data.most_active_slots.forEach(s => {
+            html += `<li>Slot ${s.slot_id}: ${s.changes} status changes</li>`;
+        });
+
+        html += `</ul><h4>Peak Activity Hours</h4><ul>`;
+        data.peak_activity_hours.forEach(h => {
+            html += `<li>${h.hour}:00 - ${h.events} events</li>`;
+        });
+
+        html += `</ul>`;
+        document.getElementById("sensorStats").innerHTML = html;
+    }
+
     function exportLogs() {
         const rows = document.querySelectorAll("#logsContainer table tr");
         let csv = "Vehicle Plate,Entry Time,Exit Time\n";
@@ -495,12 +562,16 @@
         document.getElementById("usersPage").style.display = page === "users" ? "block" : "none";
         document.getElementById("reservationsPage").style.display = page === "reservations" ? "block" : "none";
         document.getElementById("logsPage").style.display = page === "logs" ? "block" : "none";
+        document.getElementById("auditPage").style.display = page === "audit" ? "block" : "none";
+        document.getElementById("sensorsPage").style.display = page === "sensors" ? "block" : "none";
 
         if (page === "dashboard") loadDashboard();
         if (page === "slots") loadSlots();
         if (page === "users") loadUsers();
         if (page === "reservations") loadReservations();
         if (page === "logs") loadLogs();
+        if (page === "audit") loadAuditLogs();
+        if (page === "sensors") loadSensorAnalytics();
 
         document.querySelectorAll(".nav-item").forEach(el => el.classList.remove("active"));
         document.querySelector(`.nav-item[data-page="${page}"]`).classList.add("active");
