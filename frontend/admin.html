@@ -287,6 +287,7 @@
             socket.emit("join", { user_id: currentUser.id });
         }
     });
+    let alerts = [];
     let currentUser = null;
     let trendChart = null;
 
@@ -297,6 +298,22 @@
         t.style.background = isError ? "#e74c3c" : "#222";
         t.classList.add("show");
         setTimeout(() => t.classList.remove("show"), 3000);
+    }
+
+    // ALERTS
+    function renderAlerts() {
+        const container = document.getElementById("alertList");
+
+        if (!alerts.length) {
+            container.innerHTML = `<div>✅ System normal</div>`;
+            return;
+        }
+
+        container.innerHTML = alerts.map(a => `
+            <div style="padding:8px; border-bottom:1px solid #eee;">
+                <b>${a.time}</b> – ${a.message}
+            </div>
+        `).join("");
     }
 
     // Auth check
@@ -378,8 +395,8 @@
         });
 
         // ✅ Alerts
-        document.getElementById("alertList").innerHTML = `<div>✅ System normal</div>`;
-
+        renderAlerts();
+        
     } catch (e) {
         toast(e.message, true);
     }
@@ -582,7 +599,20 @@
     socket.on("logs_updated", () => {
         if (document.getElementById("logsPage").style.display !== "none") loadLogs();
     });
-    socket.on("system_warning", (data) => toast("⚠️ " + data.message, true));
+    socket.on("system_warning", (data) => {
+        const time = new Date().toLocaleTimeString();
+    
+        alerts.unshift({
+            message: data.message,
+            time: time
+        });
+
+        // keep only last 10 alerts
+        alerts = alerts.slice(0, 10);
+
+        renderAlerts();
+        toast("⚠️ " + data.message, true);
+    });
     socket.on("reservation_created", () => loadReservations());
     socket.on("reservation_expiring", (data) => {
         toast("⏳ " + data.message, true);
