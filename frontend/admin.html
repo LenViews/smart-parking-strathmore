@@ -329,26 +329,61 @@
 
     // Load Dashboard (uses your existing /analytics)
     async function loadDashboard() {
-        try {
-            const analytics = await apiCall("/analytics");
-            document.getElementById("statsGrid").innerHTML = `
-                <div class="stat-card"><div class="stat-title">Occupancy</div><div class="stat-value">${analytics.occupancy_rate}%</div></div>
-                <div class="stat-card"><div class="stat-title">Occupied / Total</div><div class="stat-value">${analytics.occupied} / ${analytics.total}</div></div>
-                <div class="stat-card"><div class="stat-title">Reservations Today</div><div class="stat-value">${analytics.today_reservations}</div></div>
-                <div class="stat-card"><div class="stat-title">Active Users</div><div class="stat-value">—</div></div>
-            `;
-            // Simple trend – we can simulate from your existing data or ignore chart
-            if (trendChart) trendChart.destroy();
-            const ctx = document.getElementById("trendChart").getContext("2d");
-            trendChart = new Chart(ctx, {
-                type: "line",
-                data: { labels: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], datasets: [{ label: "Occupancy %", data: [65,70,68,72,80,85,82], borderColor: "#c41e3a" }] }
-            });
-            // Show recent alerts (optional – you can store alerts in a table)
-            document.getElementById("alertList").innerHTML = `<div>✅ System normal</div>`;
-        } catch(e) { toast(e.message, true); }
-    }
+    try {
+        // ✅ Load summary analytics
+        const analytics = await apiCall("/analytics");
 
+        document.getElementById("statsGrid").innerHTML = `
+            <div class="stat-card"><div class="stat-title">Occupancy</div><div class="stat-value">${analytics.occupancy_rate}%</div></div>
+            <div class="stat-card"><div class="stat-title">Occupied / Total</div><div class="stat-value">${analytics.occupied} / ${analytics.total}</div></div>
+            <div class="stat-card"><div class="stat-title">Reservations Today</div><div class="stat-value">${analytics.today_reservations}</div></div>
+            <div class="stat-card"><div class="stat-title">Active Users</div><div class="stat-value">—</div></div>
+        `;
+
+        // ✅ Fetch trend data OUTSIDE chart config
+        const trendData = await apiCall("/analytics/trend");
+
+        const labels = trendData.map(d => {
+            const date = new Date(d.date);
+            return date.toLocaleDateString("en-US", { weekday: "short" });
+        });
+
+        const values = trendData.map(d => d.count);
+
+        // ✅ Destroy old chart
+        if (trendChart) trendChart.destroy();
+
+        // ✅ Create chart
+        const ctx = document.getElementById("trendChart").getContext("2d");
+
+        trendChart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Reservations (Last 7 Days)",
+                    data: values,
+                    borderColor: "#c41e3a",
+                    backgroundColor: "rgba(196,30,58,0.1)",
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: true }
+                }
+            }
+        });
+
+        // ✅ Alerts
+        document.getElementById("alertList").innerHTML = `<div>✅ System normal</div>`;
+
+    } catch (e) {
+        toast(e.message, true);
+    }
+}
     // Load Slots (uses your /slots)
     async function loadSlots() {
         const slots = await apiCall("/slots");

@@ -602,6 +602,38 @@ def sensor_analytics():
         "peak_activity_hours": peak_hours
     })
 
+# ------------ ANALYTICS TREND -----------------
+@app.route('/analytics/trend')
+def analytics_trend():
+    db = get_db()
+    cursor = db.cursor(MySQLdb.cursors.DictCursor)
+
+    # Last 7 days reservations count
+    cursor.execute("""
+        SELECT DATE(created_at) as day, COUNT(*) as count
+        FROM reservations
+        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        GROUP BY DATE(created_at)
+        ORDER BY day ASC
+    """)
+
+    rows = cursor.fetchall()
+
+    # Prepare full 7-day range (fill missing days with 0)
+    result = []
+    today = datetime.now().date()
+
+    data_map = {str(r['day']): r['count'] for r in rows}
+
+    for i in range(6, -1, -1):
+        d = today - timedelta(days=i)
+        result.append({
+            "date": d.strftime("%Y-%m-%d"),
+            "count": data_map.get(str(d), 0)
+        })
+
+    return jsonify(result)
+
 
 # ------------------ USER RESERVATIONS ------------------
 
