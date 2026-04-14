@@ -2,6 +2,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_socketio import SocketIO
+from flask_socketio import join_room
 import MySQLdb
 from flask import g
 from datetime import datetime, timedelta
@@ -50,6 +51,13 @@ def get_db():
             autocommit=False
         )
     return g.db
+
+@socketio.on('join')
+def handle_join(data):
+    user_id = data.get("user_id")
+    if user_id:
+        join_room(str(user_id))
+        print(f"User {user_id} joined room {user_id}")
 
 @app.teardown_appcontext
 def close_db(exception):

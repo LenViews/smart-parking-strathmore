@@ -303,6 +303,9 @@
 <script>
     const API = "http://127.0.0.1:5000";
     const socket = io(API);
+    socket.on("reservation_expiring", (data) => {
+        toast(data.message, true);
+    });
     let currentUser = null;
 
     function toast(msg, isError = false) {

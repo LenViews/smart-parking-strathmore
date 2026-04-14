@@ -282,6 +282,11 @@
 <script>
     const API = "http://127.0.0.1:5000";
     const socket = io(API);
+    socket.on("connect", () => {
+        if (currentUser) {
+            socket.emit("join", { user_id: currentUser.id });
+        }
+    });
     let currentUser = null;
     let trendChart = null;
 
@@ -308,6 +313,7 @@
             return false;
         }
         currentUser = user;
+        socket.emit("join", { user_id: currentUser.id });
         return true;
     }
 
@@ -543,6 +549,9 @@
     });
     socket.on("system_warning", (data) => toast("⚠️ " + data.message, true));
     socket.on("reservation_created", () => loadReservations());
+    socket.on("reservation_expiring", (data) => {
+        toast("⏳ " + data.message, true);
+    });
 
     // Navigation
     function showPage(page) {
