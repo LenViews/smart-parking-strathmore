@@ -553,6 +553,9 @@ def analytics():
         FROM reservations WHERE status='EXPIRED'
     """)
     avg_duration = cursor.fetchone()['avg_minutes'] or 0
+
+    cursor.execute("SELECT COUNT(*) as active_users FROM users WHERE active=TRUE")
+    active_users = cursor.fetchone()['active_users']
     
     # Most popular slot (based on reservations)
     cursor.execute("""
@@ -570,8 +573,11 @@ def analytics():
         "total": total,
         "today_reservations": today,
         "avg_reservation_minutes": round(avg_duration, 1),
-        "most_popular_slot": popular_slot['slot_number'] if popular_slot else "N/A"
+        "most_popular_slot": popular_slot['slot_number'] if popular_slot else "N/A",
+        "active_users": active_users
     })
+
+    cursor.close()
 
 # ----------- SENSOR ANALYTICS ------------------
 @app.route('/sensor_analytics')
@@ -601,6 +607,8 @@ def sensor_analytics():
         "most_active_slots": active_slots,
         "peak_activity_hours": peak_hours
     })
+
+    cursor.close()
 
 # ------------ ANALYTICS TREND -----------------
 @app.route('/analytics/trend')
@@ -632,6 +640,7 @@ def analytics_trend():
             "count": data_map.get(str(d), 0)
         })
 
+    cursor.close()
     return jsonify(result)
 
 
@@ -684,6 +693,8 @@ def get_audit_logs():
         LEFT JOIN users u ON al.user_id = u.id
         ORDER BY al.created_at DESC LIMIT 200
     """)
+
+    cursor.close()
     return jsonify(cursor.fetchall())
 
 
@@ -713,7 +724,7 @@ def toggle_user():
         (data['user_id'],)
     )
 
-    admin_id = data.get('user_id')          # admin performing action
+    admin_id = data.get('admin_id')          # admin performing action
     target_id = data.get('user_id')        # same here unless you separate
 
     cursor.execute(

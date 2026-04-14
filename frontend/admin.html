@@ -354,7 +354,7 @@
             <div class="stat-card"><div class="stat-title">Occupancy</div><div class="stat-value">${analytics.occupancy_rate}%</div></div>
             <div class="stat-card"><div class="stat-title">Occupied / Total</div><div class="stat-value">${analytics.occupied} / ${analytics.total}</div></div>
             <div class="stat-card"><div class="stat-title">Reservations Today</div><div class="stat-value">${analytics.today_reservations}</div></div>
-            <div class="stat-card"><div class="stat-title">Active Users</div><div class="stat-value">—</div></div>
+            <div class="stat-card"><div class="stat-title">Active Users</div><div class="stat-value">${analytics.active_users || 0}</div></div>
         `;
 
         // ✅ Fetch trend data OUTSIDE chart config
@@ -616,6 +616,15 @@
     socket.on("reservation_created", () => loadReservations());
     socket.on("reservation_expiring", (data) => {
         toast("⏳ " + data.message, true);
+    });
+    socket.on("security_alert", (data) => {
+        alerts.unshift({
+            message: "🚨 " + data.message,
+            time: new Date().toLocaleTimeString()
+        });
+        alerts = alerts.slice(0, 10);
+        renderAlerts();
+        toast(data.message, true);
     });
 
     // Navigation
